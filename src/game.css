@@ -1,0 +1,19 @@
+body.game-page .terminal-line.round-header {
+  font-size: 15px;
+}
+
+body.game-page .terminal-line.round-header.has-prompt::before {
+  font-size: 15px;
+}
+
+body.game-page .terminal-line.scene-line {
+  font-size: 18px;
+}
+
+body.game-page .terminal-line.scene-line.has-prompt::before {
+  font-size: 18px;
+}
+
+body.game-page .choice-btn {
+  font-size: 16px;
+}
