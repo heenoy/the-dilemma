@@ -28,6 +28,12 @@ const FAST_CHAR_DELAY = 20
 const LINE_PAUSE = 600
 const PROGRESS_BAR_WIDTH = 30
 
+const GENDER_OPTIONS = [
+  { value: 'M', label: '男 (M)' },
+  { value: 'F', label: '女 (F)' },
+  { value: 'X', label: '其他 (X)' },
+]
+
 const OCCUPATIONS = [
   '学生',
   '工程师 / 技术人员',
@@ -159,6 +165,53 @@ async function promptField(label, validate) {
   return value
 }
 
+function waitForGenderChoice() {
+  return new Promise((resolve) => {
+    const onKeyDown = (e) => {
+      const num = parseInt(e.key, 10)
+      if (num >= 1 && num <= GENDER_OPTIONS.length) {
+        document.removeEventListener('keydown', onKeyDown)
+        resolve(GENDER_OPTIONS[num - 1].value)
+        return
+      }
+      const key = e.key.toUpperCase()
+      if (GENDER_OPTIONS.some((option) => option.value === key)) {
+        document.removeEventListener('keydown', onKeyDown)
+        resolve(key)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+  })
+}
+
+async function promptGender() {
+  await advanceTerminalLine()
+
+  const group = createStaticGroup('static-group gender-group')
+
+  const headerLine = document.createElement('div')
+  headerLine.className = 'terminal-line has-prompt'
+  group.appendChild(headerLine)
+  await typeText(headerLine, '[性别] 请输入编号选择：')
+
+  for (let i = 0; i < GENDER_OPTIONS.length; i++) {
+    const optionLine = document.createElement('div')
+    optionLine.className = 'terminal-line has-prompt'
+    group.appendChild(optionLine)
+    await typeText(optionLine, `[${i + 1}] ${GENDER_OPTIONS[i].label}`, {
+      charDelay: FAST_CHAR_DELAY,
+    })
+  }
+
+  const gender = await waitForGenderChoice()
+  await fadeOutStaticGroup(group)
+
+  const label = GENDER_OPTIONS.find((option) => option.value === gender)?.label ?? gender
+  lastAnswerLine = await printLine(`已记录：${label}`)
+
+  return gender
+}
+
 function waitForOccupationChoice() {
   return new Promise((resolve) => {
     const onKeyDown = (e) => {
@@ -274,13 +327,7 @@ async function runIdentityInput() {
     await delay(LINE_PAUSE)
   }
 
-  const gender = await promptField('[性别] 请输入 M / F / X：', (value) => {
-    if (value === '男') return { success: true, value: 'M' }
-    if (value === '女') return { success: true, value: 'F' }
-    const upper = value.toUpperCase()
-    if (['M', 'F', 'X'].includes(upper)) return { success: true, value: upper }
-    return { success: false, error: '无效输入，请输入 M / F / X' }
-  })
+  const gender = await promptGender()
 
   const ageStr = await promptField('[年龄] 请输入你的年龄：', (value) => {
     const age = parseInt(value, 10)
