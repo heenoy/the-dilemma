@@ -71,7 +71,7 @@ async function appendScrollLineRow(options = {}) {
     getActiveScrollLines().length > 0 ? (options.prePause ?? NARRATIVE_LINE_PAUSE) : 0
   if (prePause) await delay(prePause)
 
-  if (getActiveScrollLines().length >= MAX_SCROLL_LINES) {
+  if (!options.skipScrollLimit && getActiveScrollLines().length >= MAX_SCROLL_LINES) {
     await removeOldestScrollLine()
   }
 
@@ -84,6 +84,14 @@ async function appendScrollLineRow(options = {}) {
   applyScrollLineStates()
   await delay(SCROLL_TRANSITION)
   return row
+}
+
+async function archiveScrollLines(rows) {
+  rows.filter(Boolean).forEach((row) => {
+    row.classList.remove('scroll-line--option')
+    row.classList.add('scroll-line--archived')
+  })
+  applyScrollLineStates()
 }
 
 async function fadeOutScrollLines(rows, duration = SCROLL_TRANSITION) {
@@ -128,6 +136,10 @@ function applyScrollLineStates() {
     row.style.transform = 'translateY(0)'
     if (row.classList.contains('scroll-line--archived')) {
       row.style.opacity = '0.25'
+      return
+    }
+    if (row.classList.contains('scroll-line--option')) {
+      row.style.opacity = '1'
       return
     }
     row.style.opacity = String(SCROLL_OPACITIES[Math.min(ageFromNewest, MAX_SCROLL_LINES - 1)] ?? 0)
@@ -304,19 +316,27 @@ function waitForOccupationChoice() {
 async function promptOccupation() {
   const groupRows = []
 
-  const headerLine = await printScrollLine('[SOCIAL_FUNCTION] SELECT 1-8:', { prePause: 0 })
-  groupRows.push(getScrollRow(headerLine))
+  const headerLine = await printScrollLine('[SOCIAL_FUNCTION] SELECT 1-8:', {
+    prePause: 0,
+    skipScrollLimit: true,
+  })
+  const headerRow = getScrollRow(headerLine)
+  headerRow?.classList.add('scroll-line--option')
+  groupRows.push(headerRow)
 
   for (let i = 0; i < OCCUPATIONS.length; i++) {
     const optionLine = await printScrollLine(`[${i + 1}] ${OCCUPATIONS[i]}`, {
       charDelay: FAST_CHAR_DELAY,
       prePause: 0,
+      skipScrollLimit: true,
     })
-    groupRows.push(getScrollRow(optionLine))
+    const optionRow = getScrollRow(optionLine)
+    optionRow?.classList.add('scroll-line--option')
+    groupRows.push(optionRow)
   }
 
   const occupation = await waitForOccupationChoice()
-  await fadeOutScrollLines(groupRows)
+  await archiveScrollLines(groupRows)
 
   lastAnswerLine = await printArchivedScrollLine(`已记录：${occupation}`)
 
