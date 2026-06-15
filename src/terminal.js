@@ -75,6 +75,14 @@ export function getTerminalStage() {
   return document.getElementById('terminal-stage')
 }
 
+export function getScrollLines() {
+  return document.getElementById('scroll-lines')
+}
+
+export function getPinArea() {
+  return document.getElementById('scroll-pin-area')
+}
+
 export function getLineStack() {
   return document.getElementById('terminal-line-stack')
 }
@@ -92,20 +100,20 @@ export function getErrorBar() {
 }
 
 const SHELL_HTML = `
-  <div class="scan-pillars" aria-hidden="true">
-    <span class="scan-pillar scan-pillar--left"></span>
-    <span class="scan-pillar scan-pillar--center"></span>
-    <span class="scan-pillar scan-pillar--right"></span>
-  </div>
   <main id="terminal">
     <div id="terminal-stage" class="terminal-stage">
-      <div id="terminal-line-stack" class="terminal-line-stack"></div>
+      <div id="terminal-line-stack" class="terminal-line-stack">
+        <div id="scroll-viewport" class="scroll-viewport">
+          <div id="scroll-lines" class="scroll-lines"></div>
+        </div>
+        <div id="scroll-pin-area" class="scroll-pin-area"></div>
+      </div>
     </div>
     <div id="error-bar"></div>
+    <aside id="corner-log">
+      <div id="corner-log-scroll" class="corner-log-scroll"></div>
+    </aside>
   </main>
-  <aside id="corner-log">
-    <div id="corner-log-scroll" class="corner-log-scroll"></div>
-  </aside>
 `
 
 export function buildTerminalShell() {
@@ -117,7 +125,14 @@ export function buildTerminalShell() {
 export function resetTerminalScroll() {
   const stage = getTerminalStage()
   if (!stage) return
-  stage.innerHTML = '<div id="terminal-line-stack" class="terminal-line-stack"></div>'
+  stage.innerHTML = `
+    <div id="terminal-line-stack" class="terminal-line-stack">
+      <div id="scroll-viewport" class="scroll-viewport">
+        <div id="scroll-lines" class="scroll-lines"></div>
+      </div>
+      <div id="scroll-pin-area" class="scroll-pin-area"></div>
+    </div>
+  `
   stage.classList.remove('boot-centered')
   clearLineSlots()
 }
@@ -269,7 +284,7 @@ export async function appendCornerLog(text) {
 
   const line = document.createElement('div')
   line.className = 'corner-log-line'
-  line.textContent = `> ${text}`
+  line.textContent = text
   scroll.appendChild(line)
   await pruneCornerLogLines()
 }

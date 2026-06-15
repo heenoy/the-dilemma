@@ -4,16 +4,42 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>文明存储引擎</title>
+    <title>VAULT-0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
       rel="stylesheet"
     />
   </head>
   <body>
-    <div id="app"></div>
+    <div id="scan-vertical" class="scan-vertical" aria-hidden="true"></div>
+    <div id="screen">
+      <span class="screen-corner screen-corner--tl" aria-hidden="true"></span>
+      <span class="screen-corner screen-corner--tr" aria-hidden="true"></span>
+      <span class="screen-corner screen-corner--bl" aria-hidden="true"></span>
+      <span class="screen-corner screen-corner--br" aria-hidden="true"></span>
+      <header class="screen-bar screen-bar--top">
+        <span class="screen-bar__label screen-bar__label--left">[VAULT-0]</span>
+        <span class="screen-bar__divider"></span>
+        <span class="screen-bar__label screen-bar__label--right">[SECURE_CHANNEL]</span>
+      </header>
+      <footer class="screen-bar screen-bar--bottom">
+        <span class="screen-bar__label screen-bar__label--left">[SYSTEM: ONLINE]</span>
+        <span class="screen-bar__label screen-bar__label--right">[ENCRYPTION: ACTIVE]</span>
+      </footer>
+      <div id="screen-content">
+        <div id="app"></div>
+      </div>
+      <div id="wake-overlay" class="wake-overlay" aria-label="系统唤醒">
+        <p class="wake-prompt" aria-hidden="true">
+          <span class="wake-prompt__chevron">&gt;</span><span class="wake-prompt__cursor">_</span>
+        </p>
+        <button type="button" id="wake-init-btn" class="wake-init-btn" hidden>
+          [ INITIALIZE VAULT-0 ]
+        </button>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

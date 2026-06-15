@@ -8,74 +8,31 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
       rel="stylesheet"
     />
-    <style>
-      body.game-page #radar-canvas {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: 0;
-        pointer-events: none;
-      }
-
-      body.game-page #app {
-        position: relative;
-        z-index: 2;
-      }
-
-      body.game-page.game-glitch-active {
-        animation: none !important;
-      }
-
-      body.game-page .game-line-layer {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        transition: transform 0.5s ease, opacity 0.5s ease;
-      }
-
-      body.game-page .game-line-layer.game-line-current {
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      body.game-page .game-line-layer.game-line-exiting {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
-
-      body.game-page .terminal-line.scanning,
-      body.game-page .choice-btn.scanning {
-        text-shadow: 0 0 8px rgba(0, 255, 65, 0.8);
-        transition: text-shadow 0.1s;
-      }
-
-      body.game-page .glitch-locked {
-        animation: glitch-flash 150ms ease forwards;
-      }
-
-      @keyframes glitch-flash {
-        0% {
-          opacity: 0.3;
-        }
-        100% {
-          opacity: 1;
-        }
-      }
-
-      body.game-page .corner-log-glitch {
-        color: rgba(255, 50, 50, 0.7) !important;
-      }
-    </style>
   </head>
   <body class="game-page">
-    <canvas id="radar-canvas" aria-hidden="true"></canvas>
-    <div id="app"></div>
+    <div id="scan-vertical" class="scan-vertical" aria-hidden="true"></div>
+    <div id="screen">
+      <span class="screen-corner screen-corner--tl" aria-hidden="true"></span>
+      <span class="screen-corner screen-corner--tr" aria-hidden="true"></span>
+      <span class="screen-corner screen-corner--bl" aria-hidden="true"></span>
+      <span class="screen-corner screen-corner--br" aria-hidden="true"></span>
+      <header class="screen-bar screen-bar--top">
+        <span class="screen-bar__label screen-bar__label--left">[VAULT-0 / DECISION_ENGINE]</span>
+        <span class="screen-bar__divider"></span>
+        <span class="screen-bar__label screen-bar__label--right">[SCENARIO: ACTIVE]</span>
+      </header>
+      <footer class="screen-bar screen-bar--bottom">
+        <span class="screen-bar__label screen-bar__label--left" id="screen-bar-bl">[ROUND 01/20]</span>
+        <span class="screen-bar__label screen-bar__label--right" id="screen-bar-br">[---]</span>
+      </footer>
+      <div id="screen-content">
+        <canvas id="radar-canvas" aria-hidden="true"></canvas>
+        <div id="app"></div>
+      </div>
+    </div>
     <script type="module" src="/src/game.js"></script>
   </body>
 </html>

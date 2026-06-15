@@ -1,19 +1,102 @@
-body.game-page .terminal-line.round-header {
-  font-size: 15px;
+body.game-page .terminal-stage {
+  display: none;
 }
 
-body.game-page .terminal-line.round-header.has-prompt::before {
-  font-size: 15px;
+body.game-page #radar-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+body.game-page #app {
+  position: relative;
+  z-index: 2;
+}
+
+body.game-page.game-glitch-active {
+  animation: none !important;
+}
+
+body.game-page .game-scene-block {
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  max-width: 680px;
+  width: calc(100% - 220px);
+  line-height: 2;
+  text-align: left;
+  z-index: 2;
+  border: 1px dashed rgba(0, 255, 65, 0.3);
+  box-shadow:
+    0 0 12px rgba(0, 255, 65, 0.15),
+    inset 0 0 12px rgba(0, 255, 65, 0.05);
+  padding: 20px 20px 16px;
+  animation: glitch-border 8s infinite;
+  animation-delay: var(--glitch-border-delay);
+}
+
+body.game-page .game-line-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+body.game-page .game-line-layer.game-line-current {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+body.game-page .game-line-layer.game-line-exiting {
+  opacity: 0;
+  transform: translateY(-20px);
 }
 
 body.game-page .terminal-line.scene-line {
-  font-size: 18px;
+  font-family: var(--font);
+  font-size: 17px;
+  line-height: 2;
 }
 
 body.game-page .terminal-line.scene-line.has-prompt::before {
-  font-size: 18px;
+  font-family: var(--font);
+  font-size: 17px;
 }
 
-body.game-page .choice-btn {
-  font-size: 16px;
+body.game-page .terminal-line.round-header {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  line-height: 2.2;
+}
+
+body.game-page .terminal-line.round-header.has-prompt::before {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+}
+
+body.game-page .terminal-line.scanning,
+body.game-page .choice-btn.scanning {
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.8);
+  transition: text-shadow 0.1s;
+}
+
+body.game-page .glitch-locked {
+  animation: glitch-flash 150ms ease forwards;
+}
+
+@keyframes glitch-flash {
+  0% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+body.game-page .corner-log-glitch {
+  color: rgba(255, 50, 50, 0.7) !important;
 }

@@ -14,17 +14,22 @@ const TYPEWRITER_DURATION = 0.015
 const TYPEWRITER_VOLUME = 0.03
 const TYPEWRITER_SKIP_CHARS = new Set([' ', '。', '，', '？', '！', '：'])
 
+export async function ensureAudioContext() {
+  if (!audioContext) {
+    audioContext = new AudioContext()
+  }
+  if (audioContext.state === 'suspended') {
+    await audioContext.resume()
+  }
+  audioReady = audioContext.state === 'running'
+  return audioReady
+}
+
 export function setupAudioUnlock() {
   if (unlockAudio) return
 
   unlockAudio = async () => {
-    if (audioReady) return
-
-    audioContext = new AudioContext()
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume()
-    }
-    audioReady = audioContext.state === 'running'
+    await ensureAudioContext()
 
     document.removeEventListener('pointerdown', unlockAudio)
     document.removeEventListener('keydown', unlockAudio)
@@ -108,4 +113,68 @@ export function playGlitchClick() {
   gain.connect(audioContext.destination)
   source.start(t)
   source.stop(t + duration)
+}
+
+function playGeigerTick(atTime) {
+  const duration = 0.01
+  const sampleRate = audioContext.sampleRate
+  const bufferSize = Math.max(1, Math.floor(sampleRate * duration))
+  const buffer = audioContext.createBuffer(1, bufferSize, sampleRate)
+  const data = buffer.getChannelData(0)
+
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.25))
+  }
+
+  const source = audioContext.createBufferSource()
+  source.buffer = buffer
+
+  const filter = audioContext.createBiquadFilter()
+  filter.type = 'highpass'
+  filter.frequency.value = 1800 + Math.random() * 1200
+  filter.Q.value = 0.8
+
+  const gain = audioContext.createGain()
+  gain.gain.setValueAtTime(0.07, atTime)
+  gain.gain.exponentialRampToValueAtTime(0.0001, atTime + duration)
+
+  source.connect(filter)
+  filter.connect(gain)
+  gain.connect(audioContext.destination)
+  source.start(atTime)
+  source.stop(atTime + duration)
+}
+
+export async function playGeigerClick() {
+  const ready = await ensureAudioContext()
+  if (!ready) return
+
+  const t = audioContext.currentTime
+  const clicks = 5 + Math.floor(Math.random() * 4)
+  let offset = 0.03
+
+  for (let i = 0; i < clicks; i++) {
+    playGeigerTick(t + offset)
+    offset += 0.05 + Math.random() * 0.11
+  }
+}
+
+export async function playBarFillTick() {
+  const ready = await ensureAudioContext()
+  if (!ready) return
+
+  const t = audioContext.currentTime
+  const osc = audioContext.createOscillator()
+  const gain = audioContext.createGain()
+
+  osc.type = 'square'
+  osc.frequency.value = 110 + Math.random() * 30
+  osc.connect(gain)
+  gain.connect(audioContext.destination)
+
+  gain.gain.setValueAtTime(0.04, t)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06)
+
+  osc.start(t)
+  osc.stop(t + 0.06)
 }

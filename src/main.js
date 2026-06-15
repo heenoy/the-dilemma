@@ -1,19 +1,15 @@
 import './style.css'
 import { supabase } from './supabase.js'
+import { ensureAudioContext, playGeigerClick } from './audio.js'
+import { initVisualLayer } from './visual.js'
 import {
-  advanceTerminalLine,
   buildTerminalShell,
-  createLine,
-  createStaticGroup,
   delay,
   destroyAudio,
-  fadeOutStaticGroup,
   getErrorBar,
-  getLineStack,
+  getScrollLines,
   getTerminalContent,
   getTerminalViewport,
-  printLine,
-  registerCurrentLayer,
   resetTerminalScroll,
   setupAudioUnlock,
   showError,
@@ -26,6 +22,12 @@ import {
 
 const FAST_CHAR_DELAY = 20
 const LINE_PAUSE = 600
+const NARRATIVE_LINE_PAUSE = 1000
+const FADE_CLEAR_DURATION = 800
+const SCROLL_LINE_HEIGHT = 34
+const MAX_SCROLL_LINES = 6
+const SCROLL_TRANSITION = 400
+const SCROLL_OPACITIES = [1, 0.75, 0.5, 0.3, 0.15, 0.05]
 const PROGRESS_BAR_WIDTH = 30
 
 const GENDER_OPTIONS = [
@@ -54,7 +56,103 @@ function resetDialogueLines() {
 }
 
 async function onInputConfirmed(rowEl) {
-  await advanceTerminalLine()
+  rowEl.classList.add('scroll-line--archived')
+}
+
+function getScrollRow(el) {
+  return el?.closest?.('.scroll-line') ?? null
+}
+
+async function appendScrollLineRow(options = {}) {
+  const scrollContainer = getScrollLines()
+  if (!scrollContainer) return null
+
+  const prePause =
+    getActiveScrollLines().length > 0 ? (options.prePause ?? NARRATIVE_LINE_PAUSE) : 0
+  if (prePause) await delay(prePause)
+
+  if (getActiveScrollLines().length >= MAX_SCROLL_LINES) {
+    await removeOldestScrollLine()
+  }
+
+  const row = document.createElement('div')
+  row.className = 'scroll-line'
+  const line = document.createElement('div')
+  line.className = 'terminal-line has-prompt'
+  row.appendChild(line)
+  scrollContainer.appendChild(row)
+  applyScrollLineStates()
+  await delay(SCROLL_TRANSITION)
+  return row
+}
+
+async function fadeOutScrollLines(rows, duration = SCROLL_TRANSITION) {
+  const valid = rows.filter(Boolean)
+  if (!valid.length) return
+  valid.forEach((row) => row.classList.add('scroll-line--exiting'))
+  await delay(duration)
+  valid.forEach((row) => row.remove())
+  applyScrollLineStates()
+}
+
+async function printScrollLine(text, options = {}) {
+  const row = await appendScrollLineRow(options)
+  if (!row) return null
+  const line = row.querySelector('.terminal-line')
+  await typeText(line, text, options)
+  return line
+}
+
+async function printArchivedScrollLine(text) {
+  const row = await appendScrollLineRow({ prePause: 0 })
+  if (!row) return null
+  row.classList.add('scroll-line--archived')
+  applyScrollLineStates()
+  const line = row.querySelector('.terminal-line')
+  await typeText(line, text, { prePause: 0 })
+  return line
+}
+
+function getActiveScrollLines() {
+  return [...(getScrollLines()?.children ?? [])].filter(
+    (el) => !el.classList.contains('scroll-line--exiting')
+  )
+}
+
+function applyScrollLineStates() {
+  const lines = getActiveScrollLines()
+  const count = lines.length
+  lines.forEach((row, idx) => {
+    const ageFromNewest = count - 1 - idx
+    row.style.top = `${idx * SCROLL_LINE_HEIGHT}px`
+    row.style.transform = 'translateY(0)'
+    if (row.classList.contains('scroll-line--archived')) {
+      row.style.opacity = '0.25'
+      return
+    }
+    row.style.opacity = String(SCROLL_OPACITIES[Math.min(ageFromNewest, MAX_SCROLL_LINES - 1)] ?? 0)
+  })
+}
+
+async function removeOldestScrollLine() {
+  const lines = getActiveScrollLines()
+  if (lines.length < MAX_SCROLL_LINES) return
+  const oldest = lines[0]
+  oldest.classList.add('scroll-line--exiting')
+  await delay(SCROLL_TRANSITION)
+  oldest.remove()
+  applyScrollLineStates()
+}
+
+async function fadeClearLineStack(duration = FADE_CLEAR_DURATION) {
+  const scrollContainer = getScrollLines()
+  if (!scrollContainer || !scrollContainer.children.length) return
+  scrollContainer.style.transition = `opacity ${duration}ms ease`
+  scrollContainer.style.opacity = '0'
+  await delay(duration)
+  scrollContainer.innerHTML = ''
+  scrollContainer.style.opacity = ''
+  scrollContainer.style.transition = ''
 }
 
 function randomInt(min, max) {
@@ -77,12 +175,40 @@ function renderProgressBar(percent) {
 
 // ─── Input Helpers ───────────────────────────────────────────
 
+async function promptField(label, validate) {
+  const row = await appendScrollLineRow({ prePause: 0 })
+  if (!row) return ''
+  row.classList.add('scroll-line--input')
+
+  const line = row.querySelector('.terminal-line')
+  const valueEl = document.createElement('span')
+  valueEl.className = 'input-value'
+  const cursorEl = document.createElement('span')
+  cursorEl.className = 'input-cursor'
+  cursorEl.textContent = '█'
+
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.className = 'terminal-input'
+  input.autocomplete = 'off'
+  input.spellcheck = false
+  row.appendChild(input)
+
+  await typeText(line, label)
+  line.appendChild(valueEl)
+  line.appendChild(cursorEl)
+
+  const value = await waitForInput(validate)
+  await onInputConfirmed(row)
+  return value
+}
+
 function waitForInput(validate) {
   return new Promise((resolve) => {
-    const input = document.querySelector('.terminal-input:not([data-resolved])')
+    const input = document.querySelector('.scroll-line--input .terminal-input:not([data-resolved])')
     if (!input) return
 
-    const row = input.closest('.input-row')
+    const row = input.closest('.scroll-line')
     const valueEl = row?.querySelector('.input-value')
     const cursorEl = row?.querySelector('.input-cursor')
 
@@ -120,51 +246,6 @@ function waitForInput(validate) {
   })
 }
 
-async function promptField(label, validate) {
-  await advanceTerminalLine()
-
-  const row = document.createElement('div')
-  row.className = 'input-row terminal-line-layer'
-
-  const line = document.createElement('span')
-  line.className = 'input-line'
-
-  const promptChar = document.createElement('span')
-  promptChar.className = 'prompt-char'
-  promptChar.textContent = '>'
-
-  const promptText = document.createElement('span')
-  promptText.className = 'input-prompt'
-
-  const valueEl = document.createElement('span')
-  valueEl.className = 'input-value'
-
-  const cursorEl = document.createElement('span')
-  cursorEl.className = 'input-cursor'
-  cursorEl.textContent = '█'
-
-  const input = document.createElement('input')
-  input.type = 'text'
-  input.className = 'terminal-input'
-  input.autocomplete = 'off'
-  input.spellcheck = false
-
-  line.appendChild(promptChar)
-  line.appendChild(document.createTextNode(' '))
-  line.appendChild(promptText)
-  line.appendChild(valueEl)
-  line.appendChild(cursorEl)
-  row.appendChild(line)
-  row.appendChild(input)
-
-  getLineStack().appendChild(row)
-  registerCurrentLayer(row)
-  await typeText(promptText, label)
-  const value = await waitForInput(validate)
-  await onInputConfirmed(row)
-  return value
-}
-
 function waitForGenderChoice() {
   return new Promise((resolve) => {
     const onKeyDown = (e) => {
@@ -185,29 +266,24 @@ function waitForGenderChoice() {
 }
 
 async function promptGender() {
-  await advanceTerminalLine()
+  const groupRows = []
 
-  const group = createStaticGroup('static-group gender-group')
-
-  const headerLine = document.createElement('div')
-  headerLine.className = 'terminal-line has-prompt'
-  group.appendChild(headerLine)
-  await typeText(headerLine, '[性别] 请输入编号选择：')
+  const headerLine = await printScrollLine('[GENDER] INPUT M / F / X:', { prePause: 0 })
+  groupRows.push(getScrollRow(headerLine))
 
   for (let i = 0; i < GENDER_OPTIONS.length; i++) {
-    const optionLine = document.createElement('div')
-    optionLine.className = 'terminal-line has-prompt'
-    group.appendChild(optionLine)
-    await typeText(optionLine, `[${i + 1}] ${GENDER_OPTIONS[i].label}`, {
+    const optionLine = await printScrollLine(`[${i + 1}] ${GENDER_OPTIONS[i].label}`, {
       charDelay: FAST_CHAR_DELAY,
+      prePause: 0,
     })
+    groupRows.push(getScrollRow(optionLine))
   }
 
   const gender = await waitForGenderChoice()
-  await fadeOutStaticGroup(group)
+  await fadeOutScrollLines(groupRows)
 
   const label = GENDER_OPTIONS.find((option) => option.value === gender)?.label ?? gender
-  lastAnswerLine = await printLine(`已记录：${label}`)
+  lastAnswerLine = await printArchivedScrollLine(`已记录：${label}`)
 
   return gender
 }
@@ -226,28 +302,59 @@ function waitForOccupationChoice() {
 }
 
 async function promptOccupation() {
-  await advanceTerminalLine()
+  const groupRows = []
 
-  const group = createStaticGroup('static-group occupation-group')
-
-  const headerLine = document.createElement('div')
-  headerLine.className = 'terminal-line has-prompt'
-  group.appendChild(headerLine)
-  await typeText(headerLine, '[社会职能] 请输入编号选择你的职业：')
+  const headerLine = await printScrollLine('[SOCIAL_FUNCTION] SELECT 1-8:', { prePause: 0 })
+  groupRows.push(getScrollRow(headerLine))
 
   for (let i = 0; i < OCCUPATIONS.length; i++) {
-    const optionLine = document.createElement('div')
-    optionLine.className = 'terminal-line has-prompt'
-    group.appendChild(optionLine)
-    await typeText(optionLine, `[${i + 1}] ${OCCUPATIONS[i]}`, { charDelay: FAST_CHAR_DELAY })
+    const optionLine = await printScrollLine(`[${i + 1}] ${OCCUPATIONS[i]}`, {
+      charDelay: FAST_CHAR_DELAY,
+      prePause: 0,
+    })
+    groupRows.push(getScrollRow(optionLine))
   }
 
   const occupation = await waitForOccupationChoice()
-  await fadeOutStaticGroup(group)
+  await fadeOutScrollLines(groupRows)
 
-  lastAnswerLine = await printLine(`已记录：${occupation}`)
+  lastAnswerLine = await printArchivedScrollLine(`已记录：${occupation}`)
 
   return occupation
+}
+
+// ─── Phase 0: Wake Screen ────────────────────────────────────
+
+const WAKE_BUTTON_DELAY = 3000
+
+async function runWakeSequence() {
+  const overlay = document.getElementById('wake-overlay')
+  const btn = document.getElementById('wake-init-btn')
+  if (!overlay || !btn) return
+
+  await delay(WAKE_BUTTON_DELAY)
+  btn.hidden = false
+  btn.classList.add('wake-init-btn--visible')
+
+  await new Promise((resolve) => {
+    const onInit = async () => {
+      btn.removeEventListener('click', onInit)
+      btn.classList.add('wake-init-btn--exiting')
+
+      await ensureAudioContext()
+      playGeigerClick()
+
+      await delay(220)
+      btn.remove()
+
+      overlay.classList.add('wake-overlay--exiting')
+      await delay(500)
+      overlay.remove()
+      resolve()
+    }
+
+    btn.addEventListener('click', onInit)
+  })
 }
 
 // ─── Phase 1: Boot Sequence ──────────────────────────────────
@@ -313,26 +420,38 @@ async function runBootSequence() {
 
 // ─── Phase 2: Identity Input ─────────────────────────────────
 
-async function runIdentityInput() {
-  clearScreen()
-
-  const introLines = [
-    '监测到生物电信号。',
-    '幸存者，请提交你的基础生物特征以校准文明存储引擎。',
-    '警告：数据将被永久写入人类文明存储库。',
+async function runOpeningNarrative() {
+  const lines = [
+    'SYSTEM_BOOT_SEQUENCE: INITIALIZING...',
+    'LAST_BIOSIGNAL_DETECTED: 2891 DAYS AGO',
+    '...ANOMALY_DETECTED.',
+    'BIOSIGNAL_CONFIRMED.',
+    'PARAMETERS_OUT_OF_EXPECTED_RANGE.',
+    '幸存者，',
+    '避难所VAULT-0仍在运行。',
+    'CAPACITY_STATUS: [DATA_CORRUPTED]',
+    '在你进入之前，',
+    '文明存储引擎需要校准你的参数。',
+    '这是协议。请配合。',
+    '请提交你的基础生物特征以校准文明存储引擎。',
   ]
 
-  for (const text of introLines) {
-    await printLine(text)
-    await delay(LINE_PAUSE)
+  for (const text of lines) {
+    await printScrollLine(text)
   }
+}
+
+async function runIdentityInput() {
+  clearScreen()
+  await runOpeningNarrative()
+  await fadeClearLineStack()
 
   const gender = await promptGender()
 
-  const ageStr = await promptField('[年龄] 请输入你的年龄：', (value) => {
+  const ageStr = await promptField('[AGE] INPUT YOUR AGE:', (value) => {
     const age = parseInt(value, 10)
     if (!isNaN(age) && age >= 1 && age <= 120) return { success: true, value: String(age) }
-    return { success: false, error: '请输入有效年龄（1-120）' }
+    return { success: false, error: 'INVALID AGE. ENTER 1-120.' }
   })
 
   const occupation = await promptOccupation()
@@ -344,16 +463,21 @@ async function runIdentityInput() {
 
 async function runBusyDetection() {
   const busyLines = [
-    '检测到系统环境压力值。',
+    'DETECTING_ENVIRONMENT_STRESS_LEVEL...',
     '你是否处于高频生存决策模式？',
   ]
 
   for (const text of busyLines) {
-    await printLine(text)
+    await printScrollLine(text)
     await delay(LINE_PAUSE)
   }
 
-  const choiceGroup = createStaticGroup('static-group choice-row')
+  const yLine = await printScrollLine('[Y] 是，时间有限', { prePause: 0 })
+  const nLine = await printScrollLine('[N] 否，完整游玩', { prePause: 0 })
+  const yRow = getScrollRow(yLine)
+  const nRow = getScrollRow(nLine)
+  yRow?.classList.add('scroll-line--choice')
+  nRow?.classList.add('scroll-line--choice')
 
   return new Promise((resolve) => {
     let resolved = false
@@ -362,24 +486,12 @@ async function runBusyDetection() {
       if (resolved) return
       resolved = true
       document.removeEventListener('keydown', onKeyDown)
-      choiceGroup.querySelectorAll('.choice-btn').forEach((b) => {
-        b.disabled = true
-      })
-      await fadeOutStaticGroup(choiceGroup)
+      await fadeOutScrollLines([yRow, nRow])
       resolve(isBusy)
     }
 
-    const makeBtn = (key, label, isBusy) => {
-      const btn = document.createElement('button')
-      btn.type = 'button'
-      btn.className = 'choice-btn'
-      btn.textContent = `[${key}] ${label}`
-      btn.addEventListener('click', () => handleChoice(isBusy))
-      return btn
-    }
-
-    choiceGroup.appendChild(makeBtn('Y', '是，我时间有限', true))
-    choiceGroup.appendChild(makeBtn('N', '否，我可以完整游玩', false))
+    yRow?.addEventListener('click', () => handleChoice(true))
+    nRow?.addEventListener('click', () => handleChoice(false))
 
     const onKeyDown = (e) => {
       const key = e.key.toUpperCase()
@@ -438,11 +550,13 @@ async function savePlayerData(playerData) {
 // ─── Init ────────────────────────────────────────────────────
 
 async function initIntroPage() {
-  buildTerminalShell()
+  initVisualLayer()
   setupAudioUnlock()
-  startCornerLog({ mode: 'intro' })
 
   try {
+    await runWakeSequence()
+    buildTerminalShell()
+    startCornerLog({ mode: 'intro' })
     await runBootSequence()
     const identity = await runIdentityInput()
     const isBusy = await runBusyDetection()
@@ -452,11 +566,14 @@ async function initIntroPage() {
       localStorage.setItem('player_id', playerId)
       localStorage.setItem('is_busy', String(isBusy))
       stopCornerLog()
+      await printScrollLine('BIOMETRIC_DATA_SAVED.', { prePause: 0 })
+      await printScrollLine('REDIRECTING_TO_DECISION_ENGINE...', { prePause: 0 })
+      await delay(1500)
       destroyAudio()
       window.location.href = '/game.html'
     } catch (err) {
       console.error('[Supabase] 写入失败，完整错误:', err)
-      showError('数据写入失败，请检查网络连接。', false)
+      showError('DATA_WRITE_FAILED. CHECK_CONNECTION.', false)
     }
   } catch (err) {
     console.error(err)
