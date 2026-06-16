@@ -178,3 +178,30 @@ export async function playBarFillTick() {
   osc.start(t)
   osc.stop(t + 0.06)
 }
+
+export function playAnomalyWhiteNoise() {
+  if (!audioReady || !audioContext) return
+
+  const t = audioContext.currentTime
+  const duration = 0.08
+  const sampleRate = audioContext.sampleRate
+  const bufferSize = Math.max(1, Math.floor(sampleRate * duration))
+  const buffer = audioContext.createBuffer(1, bufferSize, sampleRate)
+  const data = buffer.getChannelData(0)
+
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1
+  }
+
+  const source = audioContext.createBufferSource()
+  source.buffer = buffer
+
+  const gain = audioContext.createGain()
+  gain.gain.setValueAtTime(0.035, t)
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + duration)
+
+  source.connect(gain)
+  gain.connect(audioContext.destination)
+  source.start(t)
+  source.stop(t + duration)
+}

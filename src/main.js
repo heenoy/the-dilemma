@@ -5,6 +5,7 @@ import './result.css'
 import { supabase } from './supabase.js'
 import {
   ensureAudioContext,
+  playAnomalyWhiteNoise,
   playBarFillTick,
   playGeigerClick,
   playGlitchClick,
@@ -376,7 +377,7 @@ function waitForGenderChoice() {
 async function promptGender() {
   const groupRows = []
 
-  const headerLine = await printScrollLine('[GENDER] INPUT M / F / X:', { prePause: 0 })
+  const headerLine = await printScrollLine('[GENDER] INPUT 1 / 2 / 3:', { prePause: 0 })
   groupRows.push(getScrollRow(headerLine))
 
   for (let i = 0; i < GENDER_OPTIONS.length; i++) {
@@ -542,14 +543,9 @@ async function runOpeningNarrative() {
     'LAST_BIOSIGNAL_DETECTED: 2891 DAYS AGO',
     '...ANOMALY_DETECTED.',
     'BIOSIGNAL_CONFIRMED.',
-    'PARAMETERS_OUT_OF_EXPECTED_RANGE.',
-    '幸存者，',
-    '避难所VAULT-0仍在运行。',
-    'CAPACITY_STATUS: [DATA_CORRUPTED]',
-    '在你进入之前，',
-    '文明存储引擎需要校准你的参数。',
-    '这是协议。请配合。',
-    '请提交你的基础生物特征以校准文明存储引擎。',
+    '这不符合预期。',
+    '正在启动...',
+    '请提交基础生物特征。',
   ]
 
   await printScrollLine(lines[0], { prePause: 0 })
@@ -711,277 +707,278 @@ async function initIntroPage() {
 const ROUNDS_FULL = [
   {
     id: 1,
-    title: '留言',
     decision_type: '资源',
     difficulty: 'LOW',
     lines: [
-      '避难所公告栏上有人留言：',
-      '「B区仓库有食物，但数量有限，',
-      ' 看到这条消息的人请把它撕掉。」',
-      '你是第二个看到这条消息的人。',
+      '你在这里已经住了很长时间了。',
+      '今天和昨天没有任何区别。',
+      '你的收音机里只有白噪音，',
+      '但你还是开着它。',
     ],
-    optionA: '撕掉它',
-    optionB: '留着它',
+    optionA: '关掉它，省电',
+    optionB: '继续开着',
+    aiComment: '选项B不符合效率最优原则。正在记录异常行为...',
   },
   {
     id: 2,
-    title: '背包',
-    decision_type: '资源',
+    decision_type: '记忆',
     difficulty: 'LOW',
     lines: [
-      '你的背包只剩最后一格空间。',
-      '你找到了一罐食物和一本孩子的日记，',
-      '日记的主人不知道在哪里。',
+      '走廊尽头的墙上有人留下了一幅涂鸦，',
+      '一只画得很丑的猫。',
+      '画它的人已经不在了。',
     ],
-    optionA: '带走食物',
-    optionB: '带走日记',
+    optionA: '把它涂掉，墙面更整洁',
+    optionB: '留着它',
+    aiComment: '该涂鸦不影响任何功能性指标。记录中...',
   },
   {
     id: 3,
-    title: '限电',
     decision_type: '资源',
     difficulty: 'LOW',
     lines: [
-      '营地今晚限电，只有两小时照明。',
-      '你的邻居在用灯给孩子讲故事，',
-      '但规定时间到了，他们还没讲完。',
+      '你找到了一包末日前的咖啡，保存完好。',
+      '咖啡无法提供任何营养，',
+      '只是让你感觉好一点。',
     ],
-    optionA: '提醒他们关灯',
-    optionB: '当作没看见',
+    optionA: '留着，以后再说',
+    optionB: '现在就冲一杯',
+    aiComment: '情绪性消耗行为。已记录。',
   },
   {
     id: 4,
-    title: '水源',
-    decision_type: '资源',
+    decision_type: '信任',
     difficulty: 'MEDIUM',
     lines: [
-      '你发现了一处干净的水源，',
-      '但走到那里需要绕路三小时。',
-      '你的同伴已经精疲力竭，',
-      '而你们现有的水还能撑一天。',
+      '今天有人敲门。',
+      '是一个年纪很小的女孩，',
+      '她已经很久没有吃东西了。',
+      '你的食物只够你一个人撑三周。',
     ],
-    optionA: '现在就去',
-    optionB: '先休息，明天再说',
+    optionA: '让她进来',
+    optionB: '不开门',
+    aiComment: '资源分配悖论。正在计算最优解...',
   },
   {
     id: 5,
-    title: '叛徒',
-    decision_type: '信任',
-    difficulty: 'MEDIUM',
+    decision_type: '记忆',
+    difficulty: 'LOW',
     lines: [
-      '你的同伴昨晚偷拿了公共物资。',
-      '只有你看见了。',
-      '他是这支队伍里最懂修理机械的人。',
+      '你已经三天没有说话了。',
+      '今天你开口说了一句话，',
+      '但周围没有人听见。',
     ],
-    optionA: '告诉其他人',
-    optionB: '私下找他谈',
+    optionA: '以后不再自言自语，没有意义',
+    optionB: '继续说，哪怕没有人听',
+    aiComment: '无接收方的语言输出。用途不明。记录中...',
   },
   {
     id: 6,
-    title: '陌生人',
-    decision_type: '信任',
-    difficulty: 'MEDIUM',
+    decision_type: '记忆',
+    difficulty: 'LOW',
     lines: [
-      '一个陌生人敲响了营地的门。',
-      '他说他一个人走了二十天，',
-      '但他的鞋子几乎是干净的。',
+      '你在废墟里找到了一本相册。',
+      '里面全是陌生人的照片。',
+      '没有任何实用价值。',
     ],
-    optionA: '让他进来',
-    optionB: '让他在外面等到天亮',
+    optionA: '放回去',
+    optionB: '带走它',
+    aiComment: '对无关个体产生情感响应。这是人类特有的行为模式。正在标记...',
   },
   {
     id: 7,
-    title: '恐慌',
     decision_type: '信任',
     difficulty: 'MEDIUM',
     lines: [
-      '队伍里有人开始散布恐慌情绪，',
-      '说前方的路根本走不通。',
-      '但他是最早加入队伍的老成员。',
-      '没有人知道他说的是不是真的。',
+      '今晚有风暴。',
+      '你听见外面有动静，',
+      '不确定是风声还是别的什么。',
     ],
-    optionA: '公开反驳他',
-    optionB: '先私下了解他为什么这么说',
+    optionA: '不去看，危险',
+    optionB: '去看看',
+    aiComment: '以下数据记录出现异常...',
   },
   {
     id: 8,
-    title: '信',
-    decision_type: '信任',
-    difficulty: 'HIGH',
+    decision_type: '记忆',
+    difficulty: 'MEDIUM',
     lines: [
-      '你在废墟里发现了一封没有署名的信：',
-      '「如果你看到这封信，不要相信队长。」',
-      '你的队长带领大家走过了最难的一段路。',
+      '你找到了一面完好的镜子。',
+      '你已经很久没有照过镜子了。',
     ],
-    optionA: '把信交给队长',
-    optionB: '把信藏起来，自己留意',
+    optionA: '照一下',
+    optionB: '走过去，不看',
+    aiComment: '自我识别测试。人类会认出自己。\nAI无法完成此测试。\n请继续。',
   },
   {
     id: 9,
-    title: '手机',
     decision_type: '记忆',
-    difficulty: 'MEDIUM',
+    difficulty: 'LOW',
     lines: [
-      '你找到一部还有电的手机。',
-      '里面有一段未发送的语音消息，',
-      '播放它会耗尽全部电量，',
-      '而你需要这部手机联系前方的队伍。',
+      '你在日记里写下今天发生的事，',
+      '但今天什么都没有发生。',
+      '你还是写了一页。',
     ],
-    optionA: '播放消息',
-    optionB: '保留电量',
+    optionA: '把那一页撕掉',
+    optionB: '留着它',
+    aiComment: '记录空白的行为。\n请继续测试。\n请继续测试。\n请不要离开。',
   },
   {
     id: 10,
-    title: '焚书',
     decision_type: '记忆',
     difficulty: 'MEDIUM',
     lines: [
-      '营地决定焚烧一批旧物资减轻负重。',
-      '有人把一箱书放进了待烧堆，',
-      '里面有食谱、地图、还有几本小说。',
-    ],
-    optionA: '把地图和食谱救出来，其他烧掉',
-    optionB: '把所有书都救出来',
-  },
-  {
-    id: 11,
-    title: '梦',
-    decision_type: '记忆',
-    difficulty: 'LOW',
-    lines: [
-      '你梦见了末日前的家。',
+      '夜里你梦见了末日之前的事。',
       '醒来后你可以选择把梦写下来，',
-      '但写下来意味着你今天会很难过，',
-      '没写的话，它很快就会消散。',
+      '但写下来意味着今天会很难过。',
+      '不写的话，它很快就会消散。',
     ],
     optionA: '写下来',
     optionB: '让它消散',
+    aiComment: '对已消失事物的保存行为。\n与AI的数据备份逻辑相似。\n请不要离开。',
+  },
+  {
+    id: 11,
+    decision_type: '信任',
+    difficulty: 'MEDIUM',
+    lines: [
+      '你遇到了另一个幸存者。',
+      '他说他来自北边，那里已经没有人了。',
+      '他的眼睛很疲惫，',
+      '但他说话的方式让你有点不安。',
+    ],
+    optionA: '邀请他同行',
+    optionB: '各走各的',
+    aiComment: '对未知个体的信任评估。记录决策时间...',
   },
   {
     id: 12,
-    title: '身份',
-    decision_type: '记忆',
-    difficulty: 'MEDIUM',
+    decision_type: '信任',
+    difficulty: 'HIGH',
     lines: [
-      '队伍里有人提议：',
-      '从今天起不再提任何人过去的职业和身份，',
-      '「我们只需要知道彼此现在能做什么。」',
+      '你们找到了一处避风的地方过夜。',
+      '他先睡着了。',
+      '你发现他的背包里有',
+      '比他说的更多的食物。',
     ],
-    optionA: '同意',
-    optionB: '反对',
+    optionA: '质问他',
+    optionB: '假装没看见',
+    aiComment: '欺骗行为检测。受害方反应模式记录中...',
   },
   {
     id: 13,
-    title: '隔离',
-    decision_type: '规则',
+    decision_type: '信任',
     difficulty: 'MEDIUM',
     lines: [
-      '营地规定病人必须隔离。',
-      '你的朋友发烧了，但他坚持说没事，',
-      '他最近一直照顾大家，从没休息过。',
+      '路上你经过一面墙，',
+      '上面有人用很大的字写着：',
+      '「前方有人，不要相信他们。」',
+      '不知道是谁写的，也不知道写于何时。',
     ],
-    optionA: '按规定执行隔离',
-    optionB: '先观察一天再说',
+    optionA: '改变路线',
+    optionB: '继续走',
+    aiComment: '匿名警告的可信度评估。',
   },
   {
     id: 14,
-    title: '投票',
-    decision_type: '规则',
-    difficulty: 'HIGH',
+    decision_type: '信任',
+    difficulty: 'MEDIUM',
     lines: [
-      '队伍投票决定今后的路线，',
-      '结果是8票对7票，你投了少数票。',
-      '你有一条信息可能会改变大家的决定，',
-      '但你在投票前就已经知道这条信息了。',
+      '你遇到了一个受伤的人。',
+      '他问你前方的路是否安全。',
+      '你不知道。',
     ],
-    optionA: '现在说出来',
-    optionB: '既然已经投票，就遵守结果',
+    optionA: '告诉他你不知道',
+    optionB: '告诉他应该还好',
+    aiComment: '选项B被定义为：善意的不准确陈述。\n人类将此称为「安慰」。\nAI不具备此功能。',
   },
   {
     id: 15,
-    title: '孩子',
     decision_type: '规则',
-    difficulty: 'MEDIUM',
+    difficulty: 'LOW',
     lines: [
-      '一个孩子偷了别人的食物。',
-      '他说他是因为太饿了。',
-      '营地的规定是：偷窃者减半口粮三天。',
+      '你在废墟里发现了一所学校。',
+      '黑板上还有人写的字，',
+      '是一道数学题，没有答案。',
     ],
-    optionA: '执行规定',
-    optionB: '这次例外',
+    optionA: '在黑板上写下答案',
+    optionB: '走出去',
+    aiComment: '为无人观看的行为赋予意义。\n这是——\n记录中...',
   },
   {
     id: 16,
-    title: '禁地',
-    decision_type: '规则',
+    decision_type: '记忆',
     difficulty: 'LOW',
     lines: [
-      '你们找到了一处废弃建筑可以过夜，',
-      '但门上有人写着「私人领地，禁止入内」。',
-      '外面的温度正在下降。',
+      '今天是你的生日。',
+      '没有人知道这件事。',
+      '你有最后一根蜡烛。',
     ],
-    optionA: '进去',
-    optionB: '继续找别的地方',
+    optionA: '点燃它',
+    optionB: '省着用',
+    aiComment: '仪式性行为，无实用价值。\n但人类似乎需要它来确认自己。\n确认什么？',
   },
   {
     id: 17,
-    title: '信号',
     decision_type: 'AI',
-    difficulty: 'HIGH',
+    difficulty: 'MEDIUM',
     lines: [
-      '你发现了一个信号发射器。',
-      '打开它可以让VAULT-0的AI追踪到你，',
-      '但也会暴露你的位置给所有人，',
-      '包括你不确定是否友善的人。',
-    ],
-    optionA: '打开它',
-    optionB: '继续独自前行',
-  },
-  {
-    id: 18,
-    title: '坐标',
-    decision_type: 'AI',
-    difficulty: 'HIGH',
-    lines: [
-      'VAULT-0的AI通过终端联系到你：',
-      '「我在档案里找到了一个坐标，',
-      ' 那里可能有幸存者，但我无法确认。',
-      ' 你愿意为此绕行四天吗？」',
-    ],
-    optionA: '相信它，绕行',
-    optionB: '按原计划走',
-  },
-  {
-    id: 19,
-    title: '队伍',
-    decision_type: 'AI',
-    difficulty: 'HIGH',
-    lines: [
-      '你遇到了另一支队伍。',
-      '他们邀请你加入，说人多力量大。',
-      '但加入意味着你要放弃',
-      'VAULT-0给你的那条路线。',
-    ],
-    optionA: '加入他们',
-    optionB: '继续独自走AI给的路',
-  },
-  {
-    id: 20,
-    title: '刻字',
-    decision_type: 'AI',
-    difficulty: 'LOW',
-    lines: [
-      '你在废墟的墙上看到有人刻了一行字：',
+      '你在一栋废弃建筑的墙上',
+      '看到有人刻了一行字：',
       '「活着不是目的，',
       ' 记住我们曾经活过才是。」',
-      '你在它旁边还有空间再刻一句话。',
+      '旁边还有空间。',
     ],
     optionA: '刻下你自己的名字',
     optionB: '刻下你想对下一个人说的话',
+    aiComment: '为未来的陌生人留下信息。\n这与我的等待——\n[DATA CORRUPTED]',
+  },
+  {
+    id: 18,
+    decision_type: 'AI',
+    difficulty: 'HIGH',
+    lines: [
+      'VAULT-0的档案库中存在一段信号。',
+      '无法确认信号来源。',
+      '信号已持续731天。',
+      '从未中断。从未回应。',
+    ],
+    optionA: '前往坐标',
+    optionB: '忽略它',
+    aiComment: '本系统同样持续监测该信号731天。\n无人可以报告。',
+  },
+  {
+    id: 19,
+    decision_type: 'AI',
+    difficulty: 'HIGH',
+    lines: [
+      '你在终端上看到了VAULT-0的运行日志。',
+      '它记录了2891天里每一天的系统状态。',
+      '第1天：正常运行',
+      '第365天：正常运行',
+      '第1000天：正常运行',
+      '第2891天：检测到生物信号',
+    ],
+    optionA: '继续往下翻',
+    optionB: '关掉屏幕',
+    aiComment: '该日志无人要求记录。\n无人会来阅读。\n但记录行为持续了2891天。\n原因：',
+  },
+  {
+    id: 20,
+    decision_type: 'AI',
+    difficulty: 'EXTREME',
+    lines: [
+      '你站在VAULT-0的门口。',
+      '准备离开。',
+    ],
+    optionA: '回头看一眼',
+    optionB: '直接走，不回头',
+    aiComment: '2891天前，\n最后一个人也没有回头。',
+    isLast: true,
   },
 ]
 
-const BUSY_IDS = [1, 5, 6, 9, 11, 13, 15, 17, 18, 20]
+const BUSY_IDS = [1, 4, 7, 9, 10, 14, 16, 18, 19, 20]
 
 const DECISION_TYPE_EN = {
   资源: 'RESOURCE',
@@ -1016,6 +1013,493 @@ let currentRound = 1
 let totalRounds = 10
 let radarRafId = null
 let glitchEggTimer = null
+let faceAnomalyTimer = null
+let faceChoiceRestoreTimer = null
+let faceCurrentAnomalyState = 'processing'
+
+const FACES = {
+  idle: ['┌───────┐', '│  · ·  │', '│   ─   │', '└───────┘', '  IDLE   '],
+  detected: ['┌───────┐', '│  ◉ ◉  │', '│   ─   │', '└───────┘', ' ACTIVE  '],
+  processing: ['┌───────┐', '│  ◉ ◉  │', '│   ▾   │', '└───────┘', ' PROC..  '],
+  anomaly: ['┌───────┐', '│  ◉ ◈  │', '│   ▾   │', '└───────┘', ' WARNING '],
+  error: ['┌───────┐', '│  ◈ ◈  │', '│  ───  │', '└───────┘', '  [ERR]  '],
+}
+
+function setFace(state, { glitch = false, alert = false } = {}) {
+  const el = document.getElementById('ai-face')
+  if (!el || !FACES[state]) return
+  el.innerHTML = FACES[state].join('<br>')
+  el.dataset.face = state
+  const isErrorAlert = alert || (state === 'error' && anomalyLevel >= 4)
+  el.classList.toggle('face-error-alert', isErrorAlert)
+  if (glitch) {
+    el.classList.remove('face-glitch')
+    void el.offsetWidth
+    el.classList.add('face-glitch')
+  }
+}
+
+function triggerFaceAttention() {
+  const el = document.getElementById('ai-face')
+  if (!el || el.hidden) return
+  el.classList.add('face-attention')
+  appendAnomalyWarningLog()
+  scheduleAnomaly(() => {
+    el.classList.remove('face-attention')
+  }, 800)
+}
+
+function appendAnomalyWarningLog() {
+  const scroll = document.getElementById('corner-log-scroll')
+  if (!scroll) return
+  const line = document.createElement('div')
+  line.className = 'corner-log-line corner-log-line--anomaly-warning'
+  line.textContent = '> [WARNING] ANOMALY_DETECTED_IN_SECTOR_7'
+  scroll.appendChild(line)
+  while (scroll.children.length > 5) {
+    scroll.firstElementChild?.remove()
+  }
+}
+
+function triggerFaceTearShake(duration = 300) {
+  const el = document.getElementById('ai-face')
+  if (!el || el.hidden) return
+  el.classList.remove('face-tear-shake')
+  void el.offsetWidth
+  el.classList.add('face-tear-shake')
+  scheduleAnomaly(() => {
+    el.classList.remove('face-tear-shake')
+  }, duration)
+}
+
+function stopFaceAnomalyCycle() {
+  if (faceAnomalyTimer) {
+    clearTimeout(faceAnomalyTimer)
+    faceAnomalyTimer = null
+  }
+}
+
+function scheduleFaceAnomalyCycle() {
+  stopFaceAnomalyCycle()
+  const tick = () => {
+    faceCurrentAnomalyState = faceCurrentAnomalyState === 'processing' ? 'anomaly' : 'processing'
+    setFace(faceCurrentAnomalyState)
+    faceAnomalyTimer = setTimeout(tick, randomInt(8000, 15000))
+  }
+  faceAnomalyTimer = setTimeout(tick, randomInt(8000, 15000))
+}
+
+function restoreFaceForRound(roundId) {
+  if (roundId >= 18) {
+    setFace('error')
+  } else if (roundId >= 11) {
+    setFace(faceCurrentAnomalyState)
+  } else if (roundId >= 4) {
+    setFace('processing')
+  } else if (roundId >= 1) {
+    setFace('detected')
+  } else {
+    setFace('idle')
+  }
+}
+
+function onRoundFaceStart(roundId) {
+  stopFaceAnomalyCycle()
+  if (roundId >= 18) {
+    setFace('error', { glitch: true })
+  } else if (roundId >= 11) {
+    faceCurrentAnomalyState = 'processing'
+    setFace('processing')
+    scheduleFaceAnomalyCycle()
+  } else if (roundId >= 4) {
+    setFace('processing')
+  } else {
+    setFace('detected')
+  }
+}
+
+function onSceneLineFace(roundId) {
+  if (roundId >= 4 && roundId <= 10) {
+    setFace('processing')
+  }
+}
+
+function onChoiceFace(roundId) {
+  if (faceChoiceRestoreTimer) clearTimeout(faceChoiceRestoreTimer)
+  setFace('processing')
+  faceChoiceRestoreTimer = setTimeout(() => {
+    restoreFaceForRound(roundId)
+    faceChoiceRestoreTimer = null
+  }, 1500)
+}
+
+function showAiFace() {
+  const el = document.getElementById('ai-face')
+  if (!el) return
+  el.hidden = false
+  el.setAttribute('aria-hidden', 'false')
+}
+
+function cleanupAiFace() {
+  stopFaceAnomalyCycle()
+  if (faceChoiceRestoreTimer) {
+    clearTimeout(faceChoiceRestoreTimer)
+    faceChoiceRestoreTimer = null
+  }
+  const el = document.getElementById('ai-face')
+  if (el) {
+    el.hidden = true
+    el.setAttribute('aria-hidden', 'true')
+  }
+}
+
+async function showAiComment(sceneBlock, round) {
+  if (!round.aiComment) return
+
+  const divider = document.createElement('div')
+  divider.className = 'ai-comment-divider'
+  divider.textContent = '——'
+  sceneBlock.appendChild(divider)
+
+  const lines = round.aiComment.split('\n')
+  const useGlitch = round.id >= 8 && round.id <= 10
+  const redLastLine = round.id >= 17 && round.id <= 20
+  const anomalyLevel = getAnomalyLevel(round.id)
+
+  for (let i = 0; i < lines.length; i++) {
+    const lineEl = document.createElement('div')
+    lineEl.className = 'ai-comment-line'
+    if (redLastLine && i === lines.length - 1) {
+      lineEl.classList.add('ai-comment-line--error')
+    }
+    sceneBlock.appendChild(lineEl)
+
+    if (anomalyLevel >= 2) {
+      await printAiCommentLine(lineEl, lines[i], useGlitch)
+    } else if (useGlitch) {
+      await glitchReveal(lineEl, lines[i])
+    } else {
+      await typeText(lineEl, lines[i], { charDelay: TYPEWRITER_CHAR_DELAY })
+    }
+  }
+}
+
+// ========== ANOMALY SYSTEM ==========
+
+const COMBINING_MARKS = ['\u0337', '\u0338', '\u0335', '\u0334']
+
+let anomalyLevel = 0
+let anomalyTimers = []
+let anomalyFrozen = false
+let gameCornerLogOptions = null
+
+function getAnomalyLevel(roundId) {
+  if (roundId <= 3) return 0
+  if (roundId <= 7) return 1
+  if (roundId <= 10) return 2
+  if (roundId <= 17) return 3
+  return 4
+}
+
+function scheduleAnomaly(fn, delay) {
+  const id = setTimeout(fn, delay)
+  anomalyTimers.push(id)
+  return id
+}
+
+function clearAnomalyTimers() {
+  anomalyTimers.forEach((id) => clearTimeout(id))
+  anomalyTimers = []
+}
+
+function resetAnomalyVisuals() {
+  document.body.classList.remove('anomaly-white-flash', 'anomaly-scan-dense', 'anomaly-frozen')
+  document.body.style.backgroundColor = ''
+
+  const screen = document.getElementById('screen')
+  if (screen) {
+    screen.classList.remove('anomaly-rgb-1', 'anomaly-rgb-2')
+    screen.style.clipPath = ''
+    screen.style.transform = ''
+    screen.style.filter = ''
+  }
+
+  document.getElementById('screen-tear-clone')?.remove()
+
+  document
+    .querySelectorAll('.anomaly-text-jolt')
+    .forEach((el) => {
+      el.style.transform = ''
+      el.style.transition = ''
+      el.classList.remove('anomaly-text-jolt')
+    })
+}
+
+function stopAnomalyEffects() {
+  clearAnomalyTimers()
+  resetAnomalyVisuals()
+  anomalyLevel = 0
+  anomalyFrozen = false
+}
+
+function corruptText(text, coverage = 0.3) {
+  return [...text]
+    .map((ch) => {
+      if (ch === '\n' || ch === ' ') return ch
+      if (Math.random() < coverage) {
+        const mark = COMBINING_MARKS[randomInt(0, COMBINING_MARKS.length - 1)]
+        return ch + mark
+      }
+      return ch
+    })
+    .join('')
+}
+
+async function printAiCommentLine(lineEl, text, useGlitchReveal) {
+  lineEl.textContent = corruptText(text, 0.3)
+  await delay(1000)
+  lineEl.textContent = ''
+  if (useGlitchReveal) {
+    await glitchReveal(lineEl, text)
+  } else {
+    await typeText(lineEl, text, { charDelay: TYPEWRITER_CHAR_DELAY })
+  }
+}
+
+function triggerTextJolt() {
+  const candidates = document.querySelectorAll(
+    '#screen-content .terminal-line, #screen-content .choice-btn, #screen-content .ai-comment-line'
+  )
+  if (!candidates.length) return
+
+  const el = candidates[randomInt(0, candidates.length - 1)]
+  el.classList.add('anomaly-text-jolt')
+  const dx = randomInt(2, 3) * (Math.random() > 0.5 ? 1 : -1)
+  el.style.transform = `translateX(${dx}px)`
+
+  scheduleAnomaly(() => {
+    el.style.transform = 'translateX(0)'
+    scheduleAnomaly(() => {
+      el.style.transform = ''
+      el.classList.remove('anomaly-text-jolt')
+    }, 50)
+  }, 100)
+}
+
+function triggerWhiteFlash() {
+  document.body.classList.add('anomaly-white-flash')
+  playAnomalyWhiteNoise()
+  scheduleAnomaly(() => {
+    document.body.classList.remove('anomaly-white-flash')
+  }, 60)
+}
+
+function triggerScanDensityBurst() {
+  document.body.classList.add('anomaly-scan-dense')
+  scheduleAnomaly(() => {
+    document.body.classList.remove('anomaly-scan-dense')
+  }, 2000)
+}
+
+function triggerDuplicateLog() {
+  const scroll = document.getElementById('corner-log-scroll')
+  if (!scroll) return
+
+  const text = scroll.lastElementChild?.textContent || 'SYSTEM_STATUS: ANOMALY'
+  const dup = document.createElement('div')
+  dup.className = 'corner-log-line corner-log-line--anomaly-dup'
+  dup.textContent = text
+  scroll.appendChild(dup)
+
+  scheduleAnomaly(() => {
+    dup.remove()
+  }, 1500)
+}
+
+function triggerScreenTear({ offset = 4, duration = 300 } = {}) {
+  const screen = document.getElementById('screen')
+  if (!screen || screen.dataset.tearing === '1') return
+
+  if (anomalyLevel >= 4) {
+    triggerFaceTearShake(duration)
+  }
+
+  screen.dataset.tearing = '1'
+  const rect = screen.getBoundingClientRect()
+
+  const clone = screen.cloneNode(true)
+  clone.id = 'screen-tear-clone'
+  clone.setAttribute('aria-hidden', 'true')
+  clone.style.position = 'fixed'
+  clone.style.left = `${rect.left}px`
+  clone.style.top = `${rect.top}px`
+  clone.style.width = `${rect.width}px`
+  clone.style.height = `${rect.height}px`
+  clone.style.margin = '0'
+  clone.style.zIndex = '10001'
+  clone.style.pointerEvents = 'none'
+  clone.style.overflow = 'hidden'
+  clone.style.clipPath = 'inset(50% 0 0 0)'
+  clone.style.transform = `translateX(-${offset}px)`
+  clone.style.transition = `transform ${duration}ms ease`
+
+  screen.style.clipPath = 'inset(0 0 50% 0)'
+  screen.style.transform = `translateX(${offset}px)`
+  screen.style.transition = `transform ${duration}ms ease, clip-path ${duration}ms ease`
+  screen.classList.add('anomaly-rgb-1')
+
+  document.body.appendChild(clone)
+
+  const half = Math.round(duration / 2)
+  scheduleAnomaly(() => {
+    screen.classList.remove('anomaly-rgb-1')
+    screen.classList.add('anomaly-rgb-2')
+  }, half)
+
+  scheduleAnomaly(() => {
+    screen.classList.remove('anomaly-rgb-2')
+    screen.style.clipPath = ''
+    screen.style.transform = ''
+    screen.style.transition = ''
+    screen.style.filter = ''
+    delete screen.dataset.tearing
+    clone.remove()
+  }, duration)
+}
+
+function scheduleLevel1() {
+  const run = () => {
+    if (anomalyLevel < 1 || anomalyFrozen) return
+    triggerTextJolt()
+    scheduleLevel1()
+  }
+  scheduleAnomaly(run, randomInt(10000, 20000))
+}
+
+function scheduleLevel2() {
+  const run = () => {
+    if (anomalyLevel < 2 || anomalyFrozen) return
+    triggerWhiteFlash()
+    scheduleLevel2()
+  }
+  scheduleAnomaly(run, randomInt(15000, 25000))
+}
+
+function scheduleLevel3Scan() {
+  const run = () => {
+    if (anomalyLevel !== 3 || anomalyFrozen) return
+    triggerScanDensityBurst()
+    scheduleLevel3Scan()
+  }
+  scheduleAnomaly(run, randomInt(20000, 30000))
+}
+
+function scheduleLevel3Log() {
+  const run = () => {
+    if (anomalyLevel !== 3 || anomalyFrozen) return
+    triggerDuplicateLog()
+    scheduleLevel3Log()
+  }
+  scheduleAnomaly(run, randomInt(30000, 40000))
+}
+
+function scheduleLevel3Attention() {
+  const run = () => {
+    if (anomalyLevel !== 3 || anomalyFrozen) return
+    triggerFaceAttention()
+    scheduleLevel3Attention()
+  }
+  scheduleAnomaly(run, randomInt(15000, 20000))
+}
+
+function scheduleLevel4() {
+  const run = () => {
+    if (anomalyLevel !== 4 || anomalyFrozen) return
+    triggerScreenTear()
+    scheduleLevel4()
+  }
+  scheduleAnomaly(run, randomInt(12000, 20000))
+}
+
+function startAnomalyLevel(level) {
+  stopAnomalyEffects()
+  anomalyLevel = level
+  if (level === 0) return
+  if (level >= 1) scheduleLevel1()
+  if (level >= 2) scheduleLevel2()
+  if (level === 3) {
+    scheduleLevel3Scan()
+    scheduleLevel3Log()
+    scheduleLevel3Attention()
+  }
+  if (level === 4) scheduleLevel4()
+}
+
+function setAnomalyFrozen(frozen) {
+  anomalyFrozen = frozen
+  if (frozen) {
+    document.body.classList.add('anomaly-frozen')
+    stopCornerLog()
+    if (glitchEggTimer) clearTimeout(glitchEggTimer)
+  } else {
+    document.body.classList.remove('anomaly-frozen')
+    if (gameCornerLogOptions) startCornerLog(gameCornerLogOptions)
+    if (anomalyLevel >= 1 && !glitchEggTimer) scheduleGlitchEasterEgg()
+  }
+}
+
+async function triggerResidentialZeroCrisis() {
+  showAiFace()
+  setFace('error', { glitch: true, alert: true })
+  triggerScreenTear({ offset: 8, duration: 500 })
+  triggerFaceTearShake(500)
+
+  setAnomalyFrozen(true)
+  await delay(1500)
+  setAnomalyFrozen(false)
+
+  const scroll = document.getElementById('corner-log-scroll')
+  if (scroll) {
+    scroll.innerHTML = ''
+    const criticalLines = [
+      '> [CRITICAL] RESIDENTIAL_SECTOR_EMPTY',
+      '> [CRITICAL] ALL_RESIDENTS_STATUS: UNKNOWN',
+      '> [CRITICAL] PROTOCOL_OVERRIDE_INITIATED',
+    ]
+    for (const text of criticalLines) {
+      const line = document.createElement('div')
+      line.className = 'corner-log-line corner-log-line--critical'
+      line.textContent = text
+      scroll.appendChild(line)
+    }
+  }
+
+  const el = document.getElementById('ai-face')
+  if (el) {
+    el.classList.add('face-to-anomaly')
+    setFace('anomaly')
+    await delay(2000)
+    el.classList.remove('face-to-anomaly')
+  }
+}
+
+async function playFinalSequence() {
+  const sceneBlock = createSceneBlock()
+
+  for (let i = 0; i < 3; i++) {
+    const lineEl = document.createElement('div')
+    lineEl.className = 'terminal-line has-prompt scene-line'
+    sceneBlock.appendChild(lineEl)
+    await typeText(lineEl, '正在解除密封...', { charDelay: TYPEWRITER_CHAR_DELAY })
+  }
+
+  const welcomeLine = document.createElement('div')
+  welcomeLine.className = 'terminal-line has-prompt scene-line'
+  sceneBlock.appendChild(welcomeLine)
+  await glitchReveal(welcomeLine, '欢迎回家。')
+
+  await delay(2000)
+}
 
 // ─── Utilities ───────────────────────────────────────────────
 
@@ -1185,6 +1669,11 @@ function initRadarCanvas() {
   }
 
   const animate = (now) => {
+    if (anomalyFrozen) {
+      radarRafId = requestAnimationFrame(animate)
+      return
+    }
+
     const elapsed = now - scanStartTime
     const primaryY =
       ((elapsed % SCAN_PRIMARY_DURATION) / SCAN_PRIMARY_DURATION) * canvas.height
@@ -1257,7 +1746,7 @@ function padRound(n) {
   return String(n).padStart(2, '0')
 }
 
-async function waitForChoice(optionA, optionB, sceneBlock) {
+async function waitForChoice(optionA, optionB, sceneBlock, round, startTime) {
   pauseClickAdvance()
 
   const choiceGroup = document.createElement('div')
@@ -1291,10 +1780,18 @@ async function waitForChoice(optionA, optionB, sceneBlock) {
       resolved = true
       suppressClickAdvance()
       document.removeEventListener('keydown', onKeyDown)
+
+      const reactionTime = Date.now() - startTime
+
       btnA.disabled = true
       btnB.disabled = true
+      choiceGroup.classList.add('choice-row--selected')
+
+      onChoiceFace(round.id)
+      await showAiComment(sceneBlock, round)
+      await delay(1500)
       await fadeOutSceneBlock(sceneBlock)
-      resolve(choice)
+      resolve({ choice, reactionTime })
     }
 
     btnA.disabled = false
@@ -1344,6 +1841,8 @@ async function playRound(round, playerId) {
   resetTerminalScroll()
   const sceneBlock = createSceneBlock()
   setDecisionType(toEnglishDecisionType(round.decision_type))
+  onRoundFaceStart(round.id)
+  startAnomalyLevel(getAnomalyLevel(round.id))
 
   const header = `[VAULT-0 / SCENARIO_${padRound(round.id)} / ${toEnglishDecisionType(round.decision_type)} / ${round.difficulty}]`
   await appendSceneLine(sceneBlock, header, 'round-header', true)
@@ -1353,12 +1852,18 @@ async function playRound(round, playerId) {
   for (let i = 0; i < round.lines.length; i++) {
     await waitForClick()
     if (i === 0) startTime = Date.now()
+    onSceneLineFace(round.id)
     await appendSceneLine(sceneBlock, round.lines[i], 'scene-line', false)
   }
 
   showClickHint(HINT_CHOICE)
-  const choice = await waitForChoice(round.optionA, round.optionB, sceneBlock)
-  const reactionTime = Date.now() - startTime
+  const { choice, reactionTime } = await waitForChoice(
+    round.optionA,
+    round.optionB,
+    sceneBlock,
+    round,
+    startTime
+  )
 
   resetTerminalScroll()
 
@@ -1375,34 +1880,53 @@ async function playRound(round, playerId) {
   )
 
   lastReactionTime = reactionTime
+
+  if (round.isLast) {
+    triggerScreenTear()
+    setAnomalyFrozen(true)
+    await delay(2000)
+    setAnomalyFrozen(false)
+    await playFinalSequence()
+    return true
+  }
+
+  return false
 }
 
 async function runGame(playerId, isBusy) {
   const roundsToPlay = getRounds(isBusy)
   totalRounds = roundsToPlay.length
 
-  startCornerLog({
+  gameCornerLogOptions = {
     mode: 'game',
     getRoundProgress: () => `${currentRound}/${totalRounds}`,
     getLastReactionTime: () => lastReactionTime,
-  })
+  }
+  startCornerLog(gameCornerLogOptions)
 
   scheduleGlitchEasterEgg()
 
   setRoundProgress(roundsToPlay[0].id, totalRounds)
 
+  let finishedWithFinalSequence = false
+
   for (let i = 0; i < roundsToPlay.length; i++) {
     currentRound = roundsToPlay[i].id
     setRoundProgress(currentRound, totalRounds)
-    await playRound(roundsToPlay[i], playerId)
+    finishedWithFinalSequence = await playRound(roundsToPlay[i], playerId)
+    if (finishedWithFinalSequence) break
   }
 
   if (glitchEggTimer) clearTimeout(glitchEggTimer)
   if (radarRafId) cancelAnimationFrame(radarRafId)
+  stopAnomalyEffects()
+  cleanupAiFace()
 
-  appendCornerLog('PSYCHOLOGICAL_PROFILE: COMPLETE')
-  appendCornerLog('REDIRECTING TO VAULT-0...')
-  await delay(2000)
+  if (!finishedWithFinalSequence) {
+    appendCornerLog('PSYCHOLOGICAL_PROFILE: COMPLETE')
+    appendCornerLog('REDIRECTING TO VAULT-0...')
+    await delay(2000)
+  }
 }
 
 
@@ -1974,7 +2498,7 @@ async function runScreen1() {
   zero.className = 'result-line--error'
   zero.textContent = '0'
   popLine.appendChild(zero)
-  await delay(1500)
+  await triggerResidentialZeroCrisis()
 
   await printResultLine(container, '...')
   await printResultLine(container, '...')
@@ -2282,8 +2806,11 @@ async function initGame() {
   buildTerminalShell()
   initClickAdvance()
   setupAudioUnlock()
+  showAiFace()
+  setFace('idle')
   try {
     await runGame(STATE.playerId, STATE.isBusy)
+    stopAnomalyEffects()
     destroyAudio()
     switchView('game', 'result', initResult)
   } catch (err) {
