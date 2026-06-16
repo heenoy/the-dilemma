@@ -1,6 +1,7 @@
 import './style.css'
 import './game.css'
 import { supabase } from './supabase.js'
+import { HINT_CHOICE, initClickAdvance, pauseClickAdvance, showClickHint, suppressClickAdvance, waitForClick } from './clickAdvance.js'
 import { initVisualLayer, setDecisionType, setRoundProgress } from './visual.js'
 import {
   appendCornerLog,
@@ -408,7 +409,6 @@ async function revealLine(element, text, forceGlitch = false) {
   } else {
     await typeText(element, text, { charDelay: TYPEWRITER_CHAR_DELAY })
   }
-  await delay(LINE_REVEAL_PAUSE)
 }
 
 function createSceneBlock() {
@@ -570,6 +570,8 @@ function padRound(n) {
 }
 
 async function waitForChoice(optionA, optionB, sceneBlock) {
+  pauseClickAdvance()
+
   const choiceGroup = document.createElement('div')
   choiceGroup.className = 'static-group choice-row'
   choiceGroup.style.marginTop = '32px'
@@ -599,6 +601,7 @@ async function waitForChoice(optionA, optionB, sceneBlock) {
     const handleChoice = async (choice) => {
       if (resolved) return
       resolved = true
+      suppressClickAdvance()
       document.removeEventListener('keydown', onKeyDown)
       btnA.disabled = true
       btnB.disabled = true
@@ -652,10 +655,12 @@ async function playRound(round, playerId) {
   let startTime = Date.now()
 
   for (let i = 0; i < round.lines.length; i++) {
+    await waitForClick()
     if (i === 0) startTime = Date.now()
     await appendSceneLine(sceneBlock, round.lines[i], 'scene-line', false)
   }
 
+  showClickHint(HINT_CHOICE)
   const choice = await waitForChoice(round.optionA, round.optionB, sceneBlock)
   const reactionTime = Date.now() - startTime
 
@@ -703,6 +708,9 @@ async function runGame(playerId, isBusy) {
   appendCornerLog('REDIRECTING TO VAULT-0...')
   await delay(2000)
   destroyAudio()
+  if (!document.fullscreenElement) {
+    await document.documentElement.requestFullscreen().catch(() => {})
+  }
   window.location.href = `/result.html?player_id=${playerId}`
 }
 
@@ -719,6 +727,7 @@ async function init() {
 
   initRadarCanvas()
   buildTerminalShell()
+  initClickAdvance()
   initVisualLayer()
   setupAudioUnlock()
 

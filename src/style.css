@@ -280,6 +280,23 @@ body::after {
   z-index: 2;
 }
 
+#view-intro,
+#view-game,
+#view-result {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#view-intro {
+  display: block;
+}
+
+#view-game,
+#view-result {
+  display: none;
+}
+
 #app {
   position: relative;
   z-index: 2;
@@ -633,6 +650,68 @@ body::after {
 .corner-log-line.corner-log-exiting {
   opacity: 0;
   transform: translateY(calc(-0.85rem * 1.8));
+}
+
+.launch-overlay {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 1000;
+  cursor: pointer;
+  transition: opacity 0.5s ease;
+}
+
+.launch-overlay--exiting {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.launch-overlay__title {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: 20px;
+  color: #00ff41;
+  text-shadow:
+    0 0 20px #00ff41,
+    0 0 40px rgba(0, 255, 65, 0.4);
+}
+
+.launch-overlay__subtitle {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: rgba(0, 255, 65, 0.6);
+  letter-spacing: 4px;
+}
+
+.launch-overlay__divider {
+  width: 300px;
+  margin: 0;
+  border: none;
+  border-top: 1px solid rgba(0, 255, 65, 0.3);
+}
+
+.launch-overlay__action {
+  margin: 8px 0 0;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: rgba(0, 255, 65, 0.8);
+  animation: blink 1.5s ease infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
 }
 
 .wake-overlay {

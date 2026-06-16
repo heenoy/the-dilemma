@@ -877,13 +877,6 @@ async function showLoadError(message) {
 // ─── Init ────────────────────────────────────────────────────
 
 async function init() {
-  initVisualLayer()
-  setupAudioUnlock()
-  buildShell()
-  updateTopBar(1)
-  appendCornerLog('RENDERING_SECTOR_01...')
-  appendCornerLog('ARCHIVE_READER: ONLINE')
-
   const params = new URLSearchParams(location.search)
   const id = params.get('player_id') || localStorage.getItem('player_id')
 
@@ -891,6 +884,13 @@ async function init() {
     window.location.href = '/index.html'
     return
   }
+
+  initVisualLayer()
+  setupAudioUnlock()
+  buildShell()
+  updateTopBar(1)
+  appendCornerLog('RENDERING_SECTOR_01...')
+  appendCornerLog('ARCHIVE_READER: ONLINE')
 
   try {
     const data = await loadAllData(id)

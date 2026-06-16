@@ -3,6 +3,8 @@ import { playTypewriterClick } from './audio.js'
 export { setupAudioUnlock, destroyAudio } from './audio.js'
 
 export const CHAR_DELAY = 50
+const CHAR_DELAY_ASCII = 18
+const CHAR_DELAY_CJK = 35
 export const SILENT_CHARS = new Set([' ', '。', '，', '？', '！', '：'])
 
 const LINE_EXIT_FAST_DURATION = 300
@@ -190,7 +192,7 @@ export function showError(message, autoDismiss = true) {
 }
 
 export async function typeText(element, text, options = {}) {
-  const charDelay = options.charDelay ?? CHAR_DELAY
+  const fixedDelay = options.charDelay
   const playSound = options.playSound ?? true
   element.textContent = ''
   for (const char of text) {
@@ -198,7 +200,9 @@ export async function typeText(element, text, options = {}) {
     if (playSound) {
       playTypewriterClick(char)
     }
-    await delay(charDelay)
+    const isAscii = char.charCodeAt(0) < 128
+    const stepDelay = fixedDelay ?? (isAscii ? CHAR_DELAY_ASCII : CHAR_DELAY_CJK)
+    await delay(stepDelay)
   }
 }
 

@@ -20,16 +20,27 @@
       <span class="screen-corner screen-corner--bl" aria-hidden="true"></span>
       <span class="screen-corner screen-corner--br" aria-hidden="true"></span>
       <header class="screen-bar screen-bar--top">
-        <span class="screen-bar__label screen-bar__label--left">[VAULT-0]</span>
+        <span class="screen-bar__label screen-bar__label--left" id="screen-bar-tl">[VAULT-0]</span>
         <span class="screen-bar__divider"></span>
-        <span class="screen-bar__label screen-bar__label--right">[SECURE_CHANNEL]</span>
+        <span class="screen-bar__label screen-bar__label--right" id="screen-bar-tr">[SECURE_CHANNEL]</span>
       </header>
       <footer class="screen-bar screen-bar--bottom">
-        <span class="screen-bar__label screen-bar__label--left">[SYSTEM: ONLINE]</span>
-        <span class="screen-bar__label screen-bar__label--right">[ENCRYPTION: ACTIVE]</span>
+        <span class="screen-bar__label screen-bar__label--left" id="screen-bar-bl">[SYSTEM: ONLINE]</span>
+        <span class="screen-bar__label screen-bar__label--right" id="screen-bar-br">[ENCRYPTION: ACTIVE]</span>
       </footer>
       <div id="screen-content">
+        <div id="view-intro"></div>
+        <div id="view-game" style="display: none">
+          <canvas id="radar-canvas" aria-hidden="true"></canvas>
+        </div>
+        <div id="view-result" style="display: none"></div>
         <div id="app"></div>
+      </div>
+      <div id="launch-overlay" class="launch-overlay" aria-label="系统初始化">
+        <h1 class="launch-overlay__title">VAULT-0</h1>
+        <p class="launch-overlay__subtitle">CIVILIZATION STORAGE ENGINE</p>
+        <hr class="launch-overlay__divider" aria-hidden="true" />
+        <p class="launch-overlay__action">[ CLICK ANYWHERE TO INITIALIZE ]</p>
       </div>
       <div id="wake-overlay" class="wake-overlay" aria-label="系统唤醒">
         <p class="wake-prompt" aria-hidden="true">
@@ -40,6 +51,7 @@
         </button>
       </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
