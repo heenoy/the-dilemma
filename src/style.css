@@ -280,23 +280,6 @@ body::after {
   z-index: 2;
 }
 
-#view-intro,
-#view-game,
-#view-result {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-#view-intro {
-  display: block;
-}
-
-#view-game,
-#view-result {
-  display: none;
-}
-
 #app {
   position: relative;
   z-index: 2;
@@ -609,7 +592,7 @@ body::after {
   position: absolute;
   right: 0;
   top: 0;
-  bottom: 0;
+  bottom: 170px;
   width: 220px;
   padding: 10px 10px 10px 14px;
   border-left: 1px solid rgba(0, 255, 65, 0.1);
@@ -652,16 +635,32 @@ body::after {
   transform: translateY(calc(-0.85rem * 1.8));
 }
 
+body.is-preboot .scan-vertical,
+body.is-preboot #screen .screen-corner,
+body.is-preboot #screen .screen-bar,
+body.is-preboot #screen-content,
+body.is-preboot #ai-face {
+  visibility: hidden;
+}
+
+body.is-preboot #screen {
+  background-image: none;
+}
+
+body.is-preboot #screen::before {
+  opacity: 0;
+}
+
 .launch-overlay {
   position: absolute;
   inset: 0;
-  background: #000;
+  z-index: 30;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  z-index: 1000;
+  gap: 28px;
+  background: #000;
   cursor: pointer;
   transition: opacity 0.5s ease;
 }
@@ -674,50 +673,39 @@ body::after {
 .launch-overlay__title {
   margin: 0;
   font-family: var(--font-pixel);
-  font-size: 20px;
-  color: #00ff41;
-  text-shadow:
-    0 0 20px #00ff41,
-    0 0 40px rgba(0, 255, 65, 0.4);
+  font-size: clamp(18px, 2.4vw, 28px);
+  color: var(--hud);
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 12px rgba(0, 255, 65, 0.45);
 }
 
 .launch-overlay__subtitle {
   margin: 0;
-  font-family: var(--font-pixel);
-  font-size: 9px;
-  color: rgba(0, 255, 65, 0.6);
-  letter-spacing: 4px;
+  font-family: var(--font);
+  font-size: 17px;
+  color: var(--primary);
+  letter-spacing: 0.08em;
 }
 
 .launch-overlay__divider {
-  width: 300px;
+  width: min(320px, 60%);
   margin: 0;
   border: none;
-  border-top: 1px solid rgba(0, 255, 65, 0.3);
+  border-top: 1px solid rgba(0, 255, 65, 0.28);
 }
 
 .launch-overlay__action {
-  margin: 8px 0 0;
+  margin: 0;
   font-family: var(--font-pixel);
-  font-size: 11px;
-  color: rgba(0, 255, 65, 0.8);
-  animation: blink 1.5s ease infinite;
-}
-
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.2;
-  }
+  font-size: 9px;
+  color: rgba(0, 255, 65, 0.62);
+  letter-spacing: 0.12em;
 }
 
 .wake-overlay {
   position: absolute;
   inset: 0;
-  z-index: 20;
+  z-index: 25;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -725,6 +713,10 @@ body::after {
   gap: 52px;
   background: #000;
   transition: opacity 0.5s ease;
+}
+
+.wake-overlay[hidden] {
+  display: none !important;
 }
 
 .wake-overlay--exiting {

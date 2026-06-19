@@ -102,46 +102,58 @@ body.game-page .corner-log-glitch {
 }
 
 body.game-page #ai-face,
-body.result-page #ai-face {
+body.result-page #ai-face,
+#ai-face {
   display: block;
   position: absolute;
-  right: 24px;
-  top: 50px;
+  right: 16px;
+  top: 40px;
   width: 200px;
-  font-family: 'Courier New', monospace;
-  font-size: 20px;
-  letter-spacing: 2px;
-  color: rgba(0, 255, 65, 0.7);
-  border: 1px dashed rgba(0, 255, 65, 0.4);
-  padding: 16px 20px;
-  line-height: 1.6;
+  height: 220px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: #000;
   z-index: 3;
-  white-space: pre;
-  text-align: center;
   pointer-events: none;
+  overflow: visible;
 }
 
-body.game-page #ai-face[hidden],
-body.result-page #ai-face[hidden] {
-  display: none;
+#ai-svg {
+  display: block;
+  width: 200px;
+  height: 220px;
 }
 
 body.game-page #ai-face.face-attention,
 body.result-page #ai-face.face-attention {
-  border-color: rgba(0, 255, 65, 1);
-  box-shadow: 0 0 20px rgba(0, 255, 65, 0.8);
+  filter: drop-shadow(0 0 20px rgba(0, 255, 65, 0.8));
   transform: scale(1.05);
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
+    filter 0.15s ease,
     transform 0.15s ease;
 }
 
 body.game-page #ai-face.face-error-alert,
 body.result-page #ai-face.face-error-alert {
-  border: 1px dashed rgba(255, 50, 50, 0.6);
-  color: rgba(255, 50, 50, 0.8);
   animation: face-alert 0.8s ease infinite;
+}
+
+body.game-page #ai-face.face-error-alert #jaw,
+body.game-page #ai-face.face-error-alert #head-group path[fill="none"],
+body.game-page #ai-face.face-error-alert #head-group line,
+body.game-page #ai-face.face-error-alert #head-group circle:not(#eye-left):not(#eye-right),
+body.result-page #ai-face.face-error-alert #jaw,
+body.result-page #ai-face.face-error-alert #head-group path[fill="none"],
+body.result-page #ai-face.face-error-alert #head-group line,
+body.result-page #ai-face.face-error-alert #head-group circle:not(#eye-left):not(#eye-right) {
+  stroke: rgba(255, 50, 50, 0.8);
+}
+
+body.game-page #ai-face[hidden],
+body.result-page #ai-face[hidden],
+#ai-face[hidden] {
+  display: none;
 }
 
 body.game-page #ai-face.face-to-anomaly,
@@ -226,6 +238,18 @@ body.game-page .ai-comment-line {
   color: rgba(0, 255, 65, 0.5);
   line-height: 2;
   white-space: pre-wrap;
+}
+
+body.game-page .ai-comment-line--log {
+  color: rgba(0, 255, 65, 0.5);
+}
+
+body.game-page .ai-comment-line--anomaly {
+  color: rgba(255, 180, 0, 0.6);
+}
+
+body.game-page .ai-comment-line--corrupted {
+  color: rgba(255, 50, 50, 0.7);
 }
 
 body.game-page .ai-comment-line--error {

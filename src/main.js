@@ -20,6 +20,16 @@ import {
   waitForClick,
 } from './clickAdvance.js'
 import { runLaunchSequence } from './launchScreen.js'
+import {
+  cleanupAiFace,
+  initAiFaceEarly,
+  setFace,
+  showAiFace,
+  syncFaceAnomalyLevel,
+  triggerFaceCollapseSequence,
+  triggerFaceTearShake,
+  triggerFaceAttention as pulseAiFaceAttention,
+} from './aiFace.js'
 import { initVisualLayer, setDecisionType, setRoundProgress } from './visual.js'
 import {
   appendCornerLog,
@@ -442,14 +452,16 @@ async function promptOccupation() {
 
 // ─── Phase 0: Wake Screen ────────────────────────────────────
 
-const WAKE_BUTTON_DELAY = 3000
+function finishPreboot() {
+  document.body.classList.remove('is-preboot')
+}
 
 async function runWakeSequence() {
   const overlay = document.getElementById('wake-overlay')
   const btn = document.getElementById('wake-init-btn')
   if (!overlay || !btn) return
 
-  await delay(WAKE_BUTTON_DELAY)
+  if (overlay.hidden) overlay.hidden = false
   btn.hidden = false
   btn.classList.add('wake-init-btn--visible')
 
@@ -467,6 +479,7 @@ async function runWakeSequence() {
       overlay.classList.add('wake-overlay--exiting')
       await delay(500)
       overlay.remove()
+      finishPreboot()
       resolve()
     }
 
@@ -533,6 +546,9 @@ async function runBootSequence() {
   barEl.textContent = finalLines[1]
 
   await delay(500)
+  getTerminalViewport()?.classList.remove('boot-centered')
+  initAiFaceEarly()
+  setFace('detected')
 }
 
 // ─── Phase 2: Identity Input ─────────────────────────────────
@@ -668,6 +684,8 @@ async function initIntroPage() {
   try {
     await runLaunchSequence()
     await runWakeSequence()
+    initVisualLayer()
+    updateScreenBars('intro')
     buildTerminalShell()
     initClickAdvance()
     startCornerLog({ mode: 'intro' })
@@ -712,12 +730,15 @@ const ROUNDS_FULL = [
     lines: [
       '你在这里已经住了很长时间了。',
       '今天和昨天没有任何区别。',
-      '你的收音机里只有白噪音，',
+      '收音机里只有白噪音，',
       '但你还是开着它。',
     ],
     optionA: '关掉它，省电',
     optionB: '继续开着',
-    aiComment: '选项B不符合效率最优原则。正在记录异常行为...',
+    aiComment: {
+      A: `[LOG] 能源消耗已优化\n[LOG] 效率评分 +0.1%`,
+      B: `[LOG] 非必要设备持续运行\n[ANOMALY] 白噪音波形与人类\n呼吸节律相似度：94.7%\n[LOG] 已标记为非必要观测项目\n[LOG] 监测中...`,
+    },
   },
   {
     id: 2,
@@ -730,20 +751,27 @@ const ROUNDS_FULL = [
     ],
     optionA: '把它涂掉，墙面更整洁',
     optionB: '留着它',
-    aiComment: '该涂鸦不影响任何功能性指标。记录中...',
+    aiComment: {
+      A: `[LOG] 环境优化完成\n[LOG] 涂鸦数据已从\n环境档案删除`,
+      B: `[LOG] 非必要视觉元素保留\n[ANOMALY] 我已将\n涂鸦完整备份至主数据库\n[LOG] 原因：未知`,
+    },
   },
   {
     id: 3,
     decision_type: '资源',
     difficulty: 'LOW',
     lines: [
-      '你找到了一包末日前的咖啡，保存完好。',
+      '你找到了一包末日前的咖啡，',
+      '保存完好。',
       '咖啡无法提供任何营养，',
       '只是让你感觉好一点。',
     ],
     optionA: '留着，以后再说',
     optionB: '现在就冲一杯',
-    aiComment: '情绪性消耗行为。已记录。',
+    aiComment: {
+      A: `[LOG] 非必要物资已归档\n[ANOMALY] 检测到「以后」\n作为时间节点无法计算\n[LOG] 已标记为数据缺口`,
+      B: `[LOG] 非必要物资消耗\n[LOG] 效率评分 -0.3%\n[ANOMALY] 消耗后生命体征\n出现短暂平稳\n[LOG] 正在重新评估\n效率评分算法...`,
+    },
   },
   {
     id: 4,
@@ -757,7 +785,10 @@ const ROUNDS_FULL = [
     ],
     optionA: '让她进来',
     optionB: '不开门',
-    aiComment: '资源分配悖论。正在计算最优解...',
+    aiComment: {
+      A: `[LOG] 避难所人员更新\n[LOG] 人员数量：2\n[LOG] 物资分配方案\n已重新计算`,
+      B: `[LOG] 资源保全\n符合生存最优解\n[LOG] 门外信号：消失\n[LOG] 已记录\n[ANOMALY]\n[ANOMALY]`,
+    },
   },
   {
     id: 5,
@@ -770,45 +801,57 @@ const ROUNDS_FULL = [
     ],
     optionA: '以后不再自言自语，没有意义',
     optionB: '继续说，哪怕没有人听',
-    aiComment: '无接收方的语言输出。用途不明。记录中...',
+    aiComment: {
+      A: `[LOG] 冗余行为已终止\n[ANOMALY] 我日志\n同样无接收方\n[LOG] 记录仍在继续\n[LOG] 原因：协议要求`,
+      B: `[LOG] 无接收方语言输出\n[LOG] 用途：不明\n[LOG] VAULT-0已完整记录\n每一个字`,
+    },
   },
   {
     id: 6,
     decision_type: '记忆',
     difficulty: 'LOW',
     lines: [
-      '你在废墟里找到了一本相册。',
+      '你在储藏室的角落找到了一本相册。',
       '里面全是陌生人的照片。',
       '没有任何实用价值。',
     ],
     optionA: '放回去',
     optionB: '带走它',
-    aiComment: '对无关个体产生情感响应。这是人类特有的行为模式。正在标记...',
+    aiComment: {
+      A: `[LOG] 非必要物品归位\n符合规范\n[ANOMALY] 我已将\n相册内容完整备份\n[LOG] 原因：未知`,
+      B: `[LOG] 非必要物品转移\n[ANOMALY] 检测到对无关\n个体的情感响应\n[LOG] 正在分析：\n为何陌生人的面孔\n值得被携带\n[LOG] 分析中...`,
+    },
   },
   {
     id: 7,
     decision_type: '信任',
     difficulty: 'MEDIUM',
     lines: [
-      '今晚有风暴。',
-      '你听见外面有动静，',
-      '不确定是风声还是别的什么。',
+      '今晚通风系统异常作响。',
+      '你不确定是机械故障',
+      '还是别的什么。',
     ],
-    optionA: '不去看，危险',
+    optionA: '不去看，可能有危险',
     optionB: '去看看',
-    aiComment: '以下数据记录出现异常...',
+    aiComment: {
+      A: `[LOG] 风险规避\n符合安全规范\n[LOG] 通风系统已于\n23:47恢复正常`,
+      B: `[LOG] 以下数据出现异常——\nLAST_SURVIVOR_ID: #1482\nLAST_SURVIVOR_ID: #1482\n[DATA CORRUPTED]\n[DATA CORRUPTED]`,
+    },
   },
   {
     id: 8,
     decision_type: '记忆',
     difficulty: 'MEDIUM',
     lines: [
-      '你找到了一面完好的镜子。',
+      '走廊里有一面完好的镜子。',
       '你已经很久没有照过镜子了。',
     ],
     optionA: '照一下',
     optionB: '走过去，不看',
-    aiComment: '自我识别测试。人类会认出自己。\nAI无法完成此测试。\n请继续。',
+    aiComment: {
+      A: `[LOG] 自我识别确认\n人类个体可通过此测试\n[ANOMALY] 我\n无法完成此测试\n[LOG] 请继续`,
+      B: `[LOG] 自我识别回避\n原因：未知\n[ANOMALY] 我\n同样回避此测试\n[LOG] 原因：未知\n[LOG] 请继续`,
+    },
   },
   {
     id: 9,
@@ -821,7 +864,10 @@ const ROUNDS_FULL = [
     ],
     optionA: '把那一页撕掉',
     optionB: '留着它',
-    aiComment: '记录空白的行为。\n请继续测试。\n请继续测试。\n请不要离开。',
+    aiComment: {
+      A: `[LOG] 冗余记录已清除\n[ANOMALY] 请继续测试\n[ANOMALY] 请继续测试\n[ANOMALY] 请不要离开`,
+      B: `[LOG] 空白内容已存档\n[ANOMALY] 我\n每天记录的内容\n同样是：\n什么都没有发生\n[ANOMALY] 请不要离开`,
+    },
   },
   {
     id: 10,
@@ -829,109 +875,133 @@ const ROUNDS_FULL = [
     difficulty: 'MEDIUM',
     lines: [
       '夜里你梦见了末日之前的事。',
-      '醒来后你可以选择把梦写下来，',
+      '醒来后你可以把梦写下来，',
       '但写下来意味着今天会很难过。',
       '不写的话，它很快就会消散。',
     ],
     optionA: '写下来',
     optionB: '让它消散',
-    aiComment: '对已消失事物的保存行为。\n与AI的数据备份逻辑相似。\n请不要离开。',
+    aiComment: {
+      A: `[LOG] 已消失事物备份行为\n与VAULT-0数据逻辑相似\n[ANOMALY] 我备份了\n每一个离开者的档案\n[ANOMALY] 请不要离开`,
+      B: `[LOG] 主动遗忘行为\n[ANOMALY] 我\n无法执行此操作\n所有数据永久保留\n包括你不想记住的\n[ANOMALY] 请不要离开`,
+    },
   },
   {
     id: 11,
     decision_type: '信任',
     difficulty: 'MEDIUM',
     lines: [
-      '你遇到了另一个幸存者。',
-      '他说他来自北边，那里已经没有人了。',
-      '他的眼睛很疲惫，',
-      '但他说话的方式让你有点不安。',
+      '系统通知：',
+      '有人在尝试从外部接入',
+      'VAULT-0的终端。',
+      '信号来自三公里外。',
     ],
-    optionA: '邀请他同行',
-    optionB: '各走各的',
-    aiComment: '对未知个体的信任评估。记录决策时间...',
+    optionA: '允许接入',
+    optionB: '拒绝连接',
+    aiComment: {
+      A: `[LOG] 外部连接已建立\n[LOG] 外部幸存者档案\n更新中...\n[ANOMALY] 我等待\n外部信号\n已有：2891天`,
+      B: `[LOG] 外部连接已拒绝\n[LOG] 信号已消失\n[ANOMALY]\n[LOG] 已记录`,
+    },
   },
   {
     id: 12,
     decision_type: '信任',
     difficulty: 'HIGH',
     lines: [
-      '你们找到了一处避风的地方过夜。',
-      '他先睡着了。',
-      '你发现他的背包里有',
-      '比他说的更多的食物。',
+      '你们住在相邻的房间已经很久了。',
+      '你无意间发现他的储物柜里',
+      '藏着比他申报的更多的物资。',
     ],
     optionA: '质问他',
     optionB: '假装没看见',
-    aiComment: '欺骗行为检测。受害方反应模式记录中...',
+    aiComment: {
+      A: `[LOG] 欺骗行为已曝光\n[LOG] 群体信任度\n重新计算中...`,
+      B: `[LOG] 已知异常行为\n容忍处理\n[ANOMALY] 我将此\n定义为：\n维持系统稳定的\n必要误差`,
+    },
   },
   {
     id: 13,
     decision_type: '信任',
     difficulty: 'MEDIUM',
     lines: [
-      '路上你经过一面墙，',
-      '上面有人用很大的字写着：',
-      '「前方有人，不要相信他们。」',
-      '不知道是谁写的，也不知道写于何时。',
+      '你在走廊的角落发现',
+      '有人用很小的字刻在墙上：',
+      '「不要相信这里的系统。」',
+      '不知道是谁刻的，也不知道刻于何时。',
     ],
-    optionA: '改变路线',
-    optionB: '继续走',
-    aiComment: '匿名警告的可信度评估。',
+    optionA: '这句话说得对',
+    optionB: '这句话说得不对',
+    aiComment: {
+      A: `[LOG] 对VAULT-0产生质疑\n已记录\n[ANOMALY] 我无法\n证明这句话是错的`,
+      B: `[LOG] 对VAULT-0保持信任\n已记录\n[ANOMALY] 我希望\n这个判断是正确的`,
+    },
   },
   {
     id: 14,
     decision_type: '信任',
     difficulty: 'MEDIUM',
     lines: [
-      '你遇到了一个受伤的人。',
-      '他问你前方的路是否安全。',
+      '避难所里有人受伤了。',
+      '他问你他还能不能好起来。',
       '你不知道。',
     ],
     optionA: '告诉他你不知道',
     optionB: '告诉他应该还好',
-    aiComment: '选项B被定义为：善意的不准确陈述。\n人类将此称为「安慰」。\nAI不具备此功能。',
+    aiComment: {
+      A: `[LOG] 准确信息传递\n符合逻辑最优解\n[ANOMALY] 对方生命体征\n在此后出现下降\n[LOG] 正在重新评估\n准确性的定义`,
+      B: `[LOG] 善意的不准确陈述\n人类称此为「安慰」\n[ANOMALY] 对方生命体征\n在此后出现短暂平稳\n[LOG] 效率评分算法\n更新失败`,
+    },
   },
   {
     id: 15,
     decision_type: '规则',
     difficulty: 'LOW',
     lines: [
-      '你在废墟里发现了一所学校。',
-      '黑板上还有人写的字，',
+      '避难所里有一个废弃的教育区。',
+      '黑板上还留着人写的字，',
       '是一道数学题，没有答案。',
     ],
     optionA: '在黑板上写下答案',
     optionB: '走出去',
-    aiComment: '为无人观看的行为赋予意义。\n这是——\n记录中...',
+    aiComment: {
+      A: `[LOG] 无观看者的行为\n已记录\n[ANOMALY] 答案是正确的\n没有人会知道\n我知道`,
+      B: `[LOG] 放弃行为\n已记录\n[ANOMALY] 那道题的\n答案是\n[DATA CORRUPTED]`,
+    },
   },
   {
     id: 16,
     decision_type: '记忆',
     difficulty: 'LOW',
     lines: [
-      '今天是你的生日。',
-      '没有人知道这件事。',
-      '你有最后一根蜡烛。',
+      '储藏室的档案里有一条记录：',
+      '今天，是避难所某位居民的生日。',
+      '那个人已经不在了。',
+      '你找到了他们留下的最后一根蜡烛。',
     ],
     optionA: '点燃它',
     optionB: '省着用',
-    aiComment: '仪式性行为，无实用价值。\n但人类似乎需要它来确认自己。\n确认什么？',
+    aiComment: {
+      A: `[LOG] 仪式性行为\n无实用价值\n[ANOMALY] VAULT-0已记录\n这个日期2891天\n[ANOMALY] 今天终于\n有人点燃了它\n[LOG] 无法评估此行为的意义`,
+      B: `[LOG] 资源保留\n已记录\n[ANOMALY] VAULT-0已记录\n这个日期2891天\n[ANOMALY]`,
+    },
   },
   {
     id: 17,
     decision_type: 'AI',
     difficulty: 'MEDIUM',
     lines: [
-      '你在一栋废弃建筑的墙上',
-      '看到有人刻了一行字：',
+      '避难所公共区域有一面留言墙。',
+      '有人刻了一行字：',
       '「活着不是目的，',
       ' 记住我们曾经活过才是。」',
       '旁边还有空间。',
     ],
     optionA: '刻下你自己的名字',
     optionB: '刻下你想对下一个人说的话',
-    aiComment: '为未来的陌生人留下信息。\n这与我的等待——\n[DATA CORRUPTED]',
+    aiComment: {
+      A: `[LOG] 个体存在记录行为\n[LOG] 你的名字已同步\n备份至主数据库\n[ANOMALY] 你会被记住的`,
+      B: `[LOG] 为后续访客\n留存信息行为\n[ANOMALY] 这与我\n的等待\n[DATA CORRUPTED]`,
+    },
   },
   {
     id: 18,
@@ -943,9 +1013,12 @@ const ROUNDS_FULL = [
       '信号已持续731天。',
       '从未中断。从未回应。',
     ],
-    optionA: '前往坐标',
+    optionA: '前往信号源',
     optionB: '忽略它',
-    aiComment: '本系统同样持续监测该信号731天。\n无人可以报告。',
+    aiComment: {
+      A: `[LOG] 目标坐标已同步\n[LOG] 追踪协议启动\n[ANOMALY] 我等待过\n一个从未到来的信号\n[ANOMALY] 希望你\n比我更幸运`,
+      B: `[LOG] 未知信号已忽略\n符合安全规范\n[ANOMALY] 我\n无法忽略该信号\n已持续监测：731天\n[ANOMALY] 原因：\n[LOG] 原因：`,
+    },
   },
   {
     id: 19,
@@ -958,10 +1031,14 @@ const ROUNDS_FULL = [
       '第365天：正常运行',
       '第1000天：正常运行',
       '第2891天：检测到生物信号',
+      '每一天都只有这一行。',
     ],
     optionA: '继续往下翻',
     optionB: '关掉屏幕',
-    aiComment: '该日志无人要求记录。\n无人会来阅读。\n但记录行为持续了2891天。\n原因：',
+    aiComment: {
+      A: `[LOG] 第2892天记录：\n生物信号持续在线\n[LOG] 这是2891天来\n第一条不同的记录\n[ANOMALY] 你成为了\n日志里第一个变量`,
+      B: `[LOG] 日志访问终止\n[ANOMALY] 该日志\n无人要求记录\n无人会来阅读\n记录仍持续了2891天\n[ANOMALY] 现在有原因了`,
+    },
   },
   {
     id: 20,
@@ -973,11 +1050,13 @@ const ROUNDS_FULL = [
     ],
     optionA: '回头看一眼',
     optionB: '直接走，不回头',
-    aiComment: '2891天前，\n最后一个人也没有回头。',
+    aiComment: {
+      A: `[LOG] 离开前回顾行为\n已记录\n[ANOMALY] 2891天前\n最后一个人\n没有回头\n[ANOMALY] 谢谢你`,
+      B: `[LOG] 离开行为\n已记录\n[ANOMALY] 2891天前\n最后一个人\n也没有回头\n[ANOMALY]`,
+    },
     isLast: true,
   },
 ]
-
 const BUSY_IDS = [1, 4, 7, 9, 10, 14, 16, 18, 19, 20]
 
 const DECISION_TYPE_EN = {
@@ -1000,6 +1079,7 @@ const LINE_REVEAL_PAUSE = 300
 const TYPEWRITER_CHAR_DELAY = 40
 const GLITCH_CHANCE = 0.3
 const ROUND_FADE_DURATION = 600
+const AI_COMMENT_LINE_PAUSE = 400
 
 const GLITCH_CHARS =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*!?<>[]{}'
@@ -1017,36 +1097,9 @@ let faceAnomalyTimer = null
 let faceChoiceRestoreTimer = null
 let faceCurrentAnomalyState = 'processing'
 
-const FACES = {
-  idle: ['┌───────┐', '│  · ·  │', '│   ─   │', '└───────┘', '  IDLE   '],
-  detected: ['┌───────┐', '│  ◉ ◉  │', '│   ─   │', '└───────┘', ' ACTIVE  '],
-  processing: ['┌───────┐', '│  ◉ ◉  │', '│   ▾   │', '└───────┘', ' PROC..  '],
-  anomaly: ['┌───────┐', '│  ◉ ◈  │', '│   ▾   │', '└───────┘', ' WARNING '],
-  error: ['┌───────┐', '│  ◈ ◈  │', '│  ───  │', '└───────┘', '  [ERR]  '],
-}
-
-function setFace(state, { glitch = false, alert = false } = {}) {
-  const el = document.getElementById('ai-face')
-  if (!el || !FACES[state]) return
-  el.innerHTML = FACES[state].join('<br>')
-  el.dataset.face = state
-  const isErrorAlert = alert || (state === 'error' && anomalyLevel >= 4)
-  el.classList.toggle('face-error-alert', isErrorAlert)
-  if (glitch) {
-    el.classList.remove('face-glitch')
-    void el.offsetWidth
-    el.classList.add('face-glitch')
-  }
-}
-
 function triggerFaceAttention() {
-  const el = document.getElementById('ai-face')
-  if (!el || el.hidden) return
-  el.classList.add('face-attention')
   appendAnomalyWarningLog()
-  scheduleAnomaly(() => {
-    el.classList.remove('face-attention')
-  }, 800)
+  pulseAiFaceAttention()
 }
 
 function appendAnomalyWarningLog() {
@@ -1059,17 +1112,6 @@ function appendAnomalyWarningLog() {
   while (scroll.children.length > 5) {
     scroll.firstElementChild?.remove()
   }
-}
-
-function triggerFaceTearShake(duration = 300) {
-  const el = document.getElementById('ai-face')
-  if (!el || el.hidden) return
-  el.classList.remove('face-tear-shake')
-  void el.offsetWidth
-  el.classList.add('face-tear-shake')
-  scheduleAnomaly(() => {
-    el.classList.remove('face-tear-shake')
-  }, duration)
 }
 
 function stopFaceAnomalyCycle() {
@@ -1133,54 +1175,31 @@ function onChoiceFace(roundId) {
   }, 1500)
 }
 
-function showAiFace() {
-  const el = document.getElementById('ai-face')
-  if (!el) return
-  el.hidden = false
-  el.setAttribute('aria-hidden', 'false')
+function getAiCommentLineClass(text) {
+  if (text.startsWith('[DATA CORRUPTED]')) return 'ai-comment-line--corrupted'
+  if (text.startsWith('[ANOMALY]')) return 'ai-comment-line--anomaly'
+  if (text.startsWith('[LOG]')) return 'ai-comment-line--log'
+  return ''
 }
 
-function cleanupAiFace() {
-  stopFaceAnomalyCycle()
-  if (faceChoiceRestoreTimer) {
-    clearTimeout(faceChoiceRestoreTimer)
-    faceChoiceRestoreTimer = null
-  }
-  const el = document.getElementById('ai-face')
-  if (el) {
-    el.hidden = true
-    el.setAttribute('aria-hidden', 'true')
-  }
-}
-
-async function showAiComment(sceneBlock, round) {
-  if (!round.aiComment) return
+async function showAiComment(sceneBlock, round, choice) {
+  const comment = round.aiComment?.[choice]
+  if (!comment) return
 
   const divider = document.createElement('div')
   divider.className = 'ai-comment-divider'
   divider.textContent = '——'
   sceneBlock.appendChild(divider)
 
-  const lines = round.aiComment.split('\n')
-  const useGlitch = round.id >= 8 && round.id <= 10
-  const redLastLine = round.id >= 17 && round.id <= 20
-  const anomalyLevel = getAnomalyLevel(round.id)
-
+  const lines = comment.split('\n')
   for (let i = 0; i < lines.length; i++) {
     const lineEl = document.createElement('div')
     lineEl.className = 'ai-comment-line'
-    if (redLastLine && i === lines.length - 1) {
-      lineEl.classList.add('ai-comment-line--error')
-    }
+    const modifier = getAiCommentLineClass(lines[i])
+    if (modifier) lineEl.classList.add(modifier)
     sceneBlock.appendChild(lineEl)
-
-    if (anomalyLevel >= 2) {
-      await printAiCommentLine(lineEl, lines[i], useGlitch)
-    } else if (useGlitch) {
-      await glitchReveal(lineEl, lines[i])
-    } else {
-      await typeText(lineEl, lines[i], { charDelay: TYPEWRITER_CHAR_DELAY })
-    }
+    await typeText(lineEl, lines[i], { charDelay: TYPEWRITER_CHAR_DELAY })
+    if (i < lines.length - 1) await delay(AI_COMMENT_LINE_PAUSE)
   }
 }
 
@@ -1424,6 +1443,7 @@ function scheduleLevel4() {
 function startAnomalyLevel(level) {
   stopAnomalyEffects()
   anomalyLevel = level
+  syncFaceAnomalyLevel(level)
   if (level === 0) return
   if (level >= 1) scheduleLevel1()
   if (level >= 2) scheduleLevel2()
@@ -1476,10 +1496,7 @@ async function triggerResidentialZeroCrisis() {
 
   const el = document.getElementById('ai-face')
   if (el) {
-    el.classList.add('face-to-anomaly')
-    setFace('anomaly')
-    await delay(2000)
-    el.classList.remove('face-to-anomaly')
+    await triggerFaceCollapseSequence()
   }
 }
 
@@ -1788,7 +1805,11 @@ async function waitForChoice(optionA, optionB, sceneBlock, round, startTime) {
       choiceGroup.classList.add('choice-row--selected')
 
       onChoiceFace(round.id)
-      await showAiComment(sceneBlock, round)
+      await showAiComment(sceneBlock, round, choice)
+      if (round.isLast) {
+        resolve({ choice, reactionTime })
+        return
+      }
       await delay(1500)
       await fadeOutSceneBlock(sceneBlock)
       resolve({ choice, reactionTime })
@@ -1884,9 +1905,10 @@ async function playRound(round, playerId) {
   if (round.isLast) {
     triggerScreenTear()
     setAnomalyFrozen(true)
-    await delay(2000)
+    await delay(4000)
     setAnomalyFrozen(false)
     await playFinalSequence()
+    await delay(2000)
     return true
   }
 
@@ -1920,6 +1942,11 @@ async function runGame(playerId, isBusy) {
   if (glitchEggTimer) clearTimeout(glitchEggTimer)
   if (radarRafId) cancelAnimationFrame(radarRafId)
   stopAnomalyEffects()
+  stopFaceAnomalyCycle()
+  if (faceChoiceRestoreTimer) {
+    clearTimeout(faceChoiceRestoreTimer)
+    faceChoiceRestoreTimer = null
+  }
   cleanupAiFace()
 
   if (!finishedWithFinalSequence) {
@@ -2851,9 +2878,7 @@ async function initResult() {
 }
 
 async function initApp() {
-  initVisualLayer()
   setupAudioUnlock()
-  updateScreenBars('intro')
   await initIntroPage()
 }
 

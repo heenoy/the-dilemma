@@ -11,8 +11,23 @@
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
       rel="stylesheet"
     />
+    <style>
+      body.is-preboot .scan-vertical,
+      body.is-preboot #screen .screen-corner,
+      body.is-preboot #screen .screen-bar,
+      body.is-preboot #screen-content,
+      body.is-preboot #ai-face {
+        visibility: hidden !important;
+      }
+      body.is-preboot #screen {
+        background-image: none !important;
+      }
+      body.is-preboot #screen::before {
+        opacity: 0 !important;
+      }
+    </style>
   </head>
-  <body>
+  <body class="is-preboot">
     <div id="scan-vertical" class="scan-vertical" aria-hidden="true"></div>
     <div id="screen">
       <span class="screen-corner screen-corner--tl" aria-hidden="true"></span>
@@ -40,7 +55,7 @@
         <hr class="launch-overlay__divider" aria-hidden="true" />
         <p class="launch-overlay__action">[ CLICK ANYWHERE TO INITIALIZE ]</p>
       </div>
-      <div id="wake-overlay" class="wake-overlay" aria-label="系统唤醒">
+      <div id="wake-overlay" class="wake-overlay" aria-label="系统唤醒" hidden>
         <p class="wake-prompt" aria-hidden="true">
           <span class="wake-prompt__chevron">&gt;</span><span class="wake-prompt__cursor">_</span>
         </p>

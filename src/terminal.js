@@ -1,10 +1,9 @@
 import { playTypewriterClick } from './audio.js'
+import { notifyTypewriterEnd, notifyTypewriterStart } from './aiFace.js'
 
 export { setupAudioUnlock, destroyAudio } from './audio.js'
 
 export const CHAR_DELAY = 50
-const CHAR_DELAY_ASCII = 18
-const CHAR_DELAY_CJK = 35
 export const SILENT_CHARS = new Set([' ', '。', '，', '？', '！', '：'])
 
 const LINE_EXIT_FAST_DURATION = 300
@@ -192,17 +191,20 @@ export function showError(message, autoDismiss = true) {
 }
 
 export async function typeText(element, text, options = {}) {
-  const fixedDelay = options.charDelay
+  const charDelay = options.charDelay ?? CHAR_DELAY
   const playSound = options.playSound ?? true
+  notifyTypewriterStart()
   element.textContent = ''
-  for (const char of text) {
-    element.textContent += char
-    if (playSound) {
-      playTypewriterClick(char)
+  try {
+    for (const char of text) {
+      element.textContent += char
+      if (playSound) {
+        playTypewriterClick(char)
+      }
+      await delay(charDelay)
     }
-    const isAscii = char.charCodeAt(0) < 128
-    const stepDelay = fixedDelay ?? (isAscii ? CHAR_DELAY_ASCII : CHAR_DELAY_CJK)
-    await delay(stepDelay)
+  } finally {
+    notifyTypewriterEnd()
   }
 }
 
