@@ -63,8 +63,31 @@
           [ INITIALIZE VAULT-0 ]
         </button>
       </div>
+      <div id="dev-panel" style="
+  position: absolute;
+  bottom: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  gap: 8px;
+">
+  <button id="dev-skip-btn" style="
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: rgba(255,100,100,0.7);
+    background: transparent;
+    border: 1px dashed rgba(255,100,100,0.4);
+    padding: 6px 12px;
+    cursor: pointer;
+  ">DEV: SKIP TO FINALE</button>
+</div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/result.js"></script>
   </body>
 </html>

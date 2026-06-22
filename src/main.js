@@ -60,6 +60,9 @@ const STATE = {
   choices: [],
 }
 
+window.STATE = STATE
+window.supabase = supabase
+
 const SCREEN_BAR_LABELS = {
   intro: {
     tl: '[VAULT-0]',
@@ -94,11 +97,36 @@ function updateScreenBars(view) {
   if (br) br.textContent = labels.br
 }
 
+function resolveViewElement(view) {
+  return document.getElementById(`view-${view}`)
+}
+
 function switchView(from, to, callback) {
-  const fromEl = document.getElementById('view-' + from)
-  const toEl = document.getElementById('view-' + to)
-  if (!fromEl || !toEl) {
+  const fromEl = resolveViewElement(from)
+  const toEl = resolveViewElement(to)
+
+  const finish = () => {
+    updateScreenBars(to)
+    if (to === 'result') {
+      document.body.classList.remove('game-page')
+      const face = document.getElementById('ai-face')
+      if (face) face.hidden = true
+    }
     callback?.()
+  }
+
+  if (!toEl) {
+    finish()
+    return
+  }
+
+  if (!fromEl || fromEl === toEl) {
+    if (fromEl && fromEl !== toEl) {
+      fromEl.style.display = 'none'
+    }
+    toEl.style.display = 'block'
+    toEl.style.opacity = '1'
+    finish()
     return
   }
 
@@ -117,8 +145,7 @@ function switchView(from, to, callback) {
     setTimeout(() => {
       toEl.style.opacity = '1'
       toEl.style.transition = ''
-      updateScreenBars(to)
-      callback?.()
+      finish()
     }, 50)
   }, 600)
 }
@@ -1500,14 +1527,16 @@ async function triggerResidentialZeroCrisis() {
   }
 }
 
-async function playFinalSequence() {
+async function playFinalSequence(skipPreamble = false) {
   const sceneBlock = createSceneBlock()
 
-  for (let i = 0; i < 3; i++) {
-    const lineEl = document.createElement('div')
-    lineEl.className = 'terminal-line has-prompt scene-line'
-    sceneBlock.appendChild(lineEl)
-    await typeText(lineEl, '正在解除密封...', { charDelay: TYPEWRITER_CHAR_DELAY })
+  if (!skipPreamble) {
+    for (let i = 0; i < 3; i++) {
+      const lineEl = document.createElement('div')
+      lineEl.className = 'terminal-line has-prompt scene-line'
+      sceneBlock.appendChild(lineEl)
+      await typeText(lineEl, '正在解除密封...', { charDelay: TYPEWRITER_CHAR_DELAY })
+    }
   }
 
   const welcomeLine = document.createElement('div')
@@ -1516,6 +1545,86 @@ async function playFinalSequence() {
   await glitchReveal(welcomeLine, '欢迎回家。')
 
   await delay(2000)
+
+  // 过渡叙事：走廊状态
+  await delay(1000)
+
+  const transLines = [
+    { text: '> 走廊照明：运行中', color: 'rgba(0,255,65,0.85)' },
+    { text: '> 生命维持系统：运行中', color: 'rgba(0,255,65,0.85)' },
+    { text: '> 居住区人员：——', color: 'rgba(0,255,65,0.85)' },
+  ]
+
+  for (const line of transLines) {
+    const div = document.createElement('div')
+    div.className = 'terminal-line has-prompt scene-line'
+    sceneBlock.appendChild(div)
+    await glitchReveal(div, line.text)
+    await delay(600)
+  }
+
+  await delay(2000)
+
+  // 居住区人员：0，触发最严重异常
+  const zeroLine = document.createElement('div')
+  zeroLine.className = 'terminal-line has-prompt scene-line'
+  zeroLine.style.color = 'rgba(255,50,50,0.9)'
+  sceneBlock.appendChild(zeroLine)
+  await glitchReveal(zeroLine, '> 居住区人员：0')
+
+  // 触发AI表情乱码消失
+  setFace('error')
+  await delay(500)
+  const aiFace = document.getElementById('ai-face')
+  if (aiFace) {
+    const svgEl = aiFace.querySelector('svg')
+    if (svgEl) {
+      const chars = '@#$%&*!?<>[]{}|\\/~^'
+      let count = 0
+      const iv = setInterval(() => {
+        count++
+        const eyeL = svgEl.querySelector('#eye-left')
+        const eyeR = svgEl.querySelector('#eye-right')
+        if (eyeL) eyeL.setAttribute('fill',
+          count%2===0 ? '#ff4444' : '#00ff41')
+        if (eyeR) eyeR.setAttribute('fill',
+          count%2===0 ? '#00ff41' : '#ff4444')
+        if (count > 12) {
+          clearInterval(iv)
+          aiFace.style.transition = 'opacity 1.5s ease'
+          aiFace.style.opacity = '0'
+          setTimeout(() => {
+            if (aiFace.parentNode) aiFace.parentNode.removeChild(aiFace)
+          }, 1500)
+        }
+      }, 80)
+    }
+  }
+
+  await delay(1500)
+
+  const aiLines = [
+    { text: '> 幸存者，', color: 'rgba(0,255,65,0.85)' },
+    { text: '> 我需要告诉你一些事情。', color: 'rgba(0,255,65,0.85)' },
+    { text: '> 上一位居民离开VAULT-0的时间是：', color: 'rgba(0,255,65,0.85)' },
+    { text: '> [DATA_CORRUPTED / TIMESTAMP_UNREADABLE]', color: 'rgba(255,50,50,0.8)' },
+  ]
+
+  for (const line of aiLines) {
+    const div = document.createElement('div')
+    div.className = 'terminal-line has-prompt scene-line'
+    div.style.color = line.color
+    sceneBlock.appendChild(div)
+    await glitchReveal(div, line.text)
+    await delay(800)
+  }
+
+  await delay(1000)
+
+  // 整体淡出，进入result
+  sceneBlock.style.transition = 'opacity 0.8s'
+  sceneBlock.style.opacity = '0'
+  await delay(900)
 }
 
 // ─── Utilities ───────────────────────────────────────────────
@@ -2847,39 +2956,106 @@ async function initGame() {
 }
 
 async function initResult() {
-  document.body.classList.remove('game-page')
-  document.body.classList.add('result-page')
-  setupAudioUnlock()
-  buildShell()
-  updateTopBar(1)
-  appendCornerLog('RENDERING_SECTOR_01...')
-  appendCornerLog('ARCHIVE_READER: ONLINE')
+  const app = document.getElementById('app')
+  if (app) app.style.display = 'none'
+  const viewIntro = document.getElementById('view-intro')
+  if (viewIntro) viewIntro.style.display = 'none'
+  const viewResult = document.getElementById('view-result')
+  if (viewResult) viewResult.style.display = 'block'
 
-  try {
-    const data = await loadAllData(STATE.playerId)
-    resultState = { ...data, playerId: STATE.playerId }
-  } catch (err) {
-    console.error(err)
-    await showLoadError(err.message || 'DATA_LOAD_FAILED')
-    return
+  console.log('[DEBUG] initResult called')
+  console.log('[DEBUG] window.startResult type:', typeof window.startResult)
+  console.log('[DEBUG] view-result element:', document.getElementById('view-result'))
+
+  if (typeof window.startResult === 'function') {
+    console.log('[DEBUG] calling window.startResult...')
+    window.startResult()
+  } else {
+    console.log('[DEBUG] window.startResult is NOT a function!')
   }
-
-  await runScreen1()
-  await switchScreen(1, 2)
-  await runScreen2()
-  await switchScreen(2, 3)
-  await runScreen3()
-  await switchScreen(3, 4)
-  await runScreen4()
-  await switchScreen(4, 5)
-  await runScreen5()
-  await switchScreen(5, 6)
-  await runScreen6()
 }
 
 async function initApp() {
   setupAudioUnlock()
+  initDevPanel()
   await initIntroPage()
 }
 
 initApp()
+
+function initDevPanel() {
+  const btn = document.getElementById('dev-skip-btn')
+  const panel = document.getElementById('dev-panel')
+  if (!btn) return
+
+  function hideDevPanel() {
+    if (panel) panel.style.display = 'none'
+  }
+
+  document.getElementById('launch-overlay')?.addEventListener('click', hideDevPanel, { once: true })
+  document.getElementById('wake-init-btn')?.addEventListener('click', hideDevPanel, { once: true })
+
+  btn.addEventListener('click', async () => {
+    hideDevPanel()
+
+    // 生成随机 player_id 格式的假ID
+    const fakeId = 'dev-' + Math.random().toString(36).substring(2,10)
+
+    // 填充 STATE
+    const genders = ['M', 'F', 'X']
+    const occs = ['学生','工程师 / 技术人员','医疗 / 卫生工作者',
+                  '教师 / 研究人员','商业 / 管理人员',
+                  '艺术 / 创意工作者','服务业 / 体力劳动者','其他']
+    STATE.playerId = fakeId
+    STATE.gender = genders[Math.floor(Math.random()*3)]
+    STATE.age = Math.floor(Math.random()*40)+18
+    STATE.occupation = occs[Math.floor(Math.random()*occs.length)]
+    STATE.isBusy = Math.random() > 0.5
+
+    // 生成假 choices 数据并写入 Supabase
+    const types = ['资源','信任','记忆','规则','AI']
+    const busyIds = [1,4,7,9,10,14,16,18,19,20]
+    const rounds = STATE.isBusy
+      ? ROUNDS_FULL.filter(r => busyIds.includes(r.id))
+      : ROUNDS_FULL
+
+    // 先写入假玩家
+    const { data: playerData } = await supabase
+      .from('players')
+      .insert({
+        gender: STATE.gender,
+        age: STATE.age,
+        occupation: STATE.occupation,
+        is_busy: STATE.isBusy
+      })
+      .select()
+      .single()
+
+    if (playerData) STATE.playerId = playerData.id
+
+    // 写入假选择数据
+    const fakeChoices = rounds.map((r, i) => ({
+      player_id: STATE.playerId,
+      round: r.id,
+      decision_type: r.decision_type,
+      choice: Math.random() > 0.5 ? 'A' : 'B',
+      reaction_time: Math.floor(Math.random()*25000)+2000
+    }))
+
+    await supabase.from('choices').insert(fakeChoices)
+
+    btn.textContent = 'LOADING...'
+    btn.disabled = true
+
+    // 清理开局 overlay，直接进入 result 第一屏
+    document.getElementById('launch-overlay')?.remove()
+    document.getElementById('wake-overlay')?.remove()
+    finishPreboot()
+
+    document.getElementById('view-intro').style.display = 'none'
+    document.getElementById('view-intro').style.opacity = '0'
+    document.getElementById('view-result').style.display = 'block'
+    document.getElementById('view-result').style.opacity = '1'
+    initResult()
+  })
+}

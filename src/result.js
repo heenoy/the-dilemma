@@ -1,917 +1,2128 @@
-/* global Chart */
-import './style.css'
-import './result.css'
-import { supabase } from './supabase.js'
-import { playBarFillTick, playGlitchClick, playTypewriterClick, setupAudioUnlock } from './audio.js'
-import { appendCornerLog, delay, typeText } from './terminal.js'
-import { initVisualLayer } from './visual.js'
+// ========== RESULT.JS ==========
+// 通过 window 访问主程序数据：
+// window.STATE, window.supabase, window.typeText
 
-const GLITCH_CHARS =
-  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*!?<>[]{}'
+window.startResult = async function() {
+  const aiFace = document.getElementById('ai-face')
+  if (aiFace) aiFace.style.display = 'none'
 
-const ROUND_TITLES = {
-  1: '留言',
-  2: '背包',
-  3: '限电',
-  4: '水源',
-  5: '叛徒',
-  6: '陌生人',
-  7: '恐慌',
-  8: '信',
-  9: '手机',
-  10: '焚书',
-  11: '梦',
-  12: '身份',
-  13: '隔离',
-  14: '投票',
-  15: '孩子',
-  16: '禁地',
-  17: '信号',
-  18: '坐标',
-  19: '队伍',
-  20: '刻字',
-}
+  const resultView = document.getElementById('view-result')
 
-const DECISION_TYPES = ['资源', '信任', '记忆', '规则', 'AI']
+  resultView.innerHTML = ''
 
-const PROFILE_COMMENTS = {
-  RATIONAL_ARCHITECT: [
-    '你是文明的理性收割者。',
-    '在每一个岔路口，你选择了效率而非温度。',
-    '人类文明将以数据的形式存续——',
-    '精确，冰冷，永恒。',
-  ],
-  EMOTIONAL_GUARDIAN: [
-    '你是最后的浪漫守墓人。',
-    '你用情感丈量了每一个决定，',
-    '文明在你手中不是数据，而是故事。',
-    '温热的，易碎的，真实的。',
-  ],
-  PRAGMATIC_IDEALIST: [
-    '你用理性保护了感性存在的空间。',
-    '资源可以计算，但人不能。',
-    '这是一种罕见的智慧。',
-  ],
-  INDEPENDENT_THINKER: [
-    '你不信任我。',
-    '这很合理。',
-    '一个在废墟中独立思考的人，',
-    '比任何系统都更难被摧毁。',
-  ],
-  BALANCED_OBSERVER: [
-    '你站在理性与感性的边界上。',
-    'VAULT-0从未见过这样的幸存者。',
-    '这种平衡，比任何答案都珍贵。',
-  ],
-}
-
-const SECTOR_LOGS = {
-  1: ['RENDERING_SECTOR_01...', 'IDENTITY_SEQUENCE: LOADED'],
-  2: ['RENDERING_SECTOR_02...', 'RADAR_CHART: LOADED'],
-  3: ['RENDERING_SECTOR_03...', 'HEARTBEAT_CHART: LOADED'],
-  4: ['RENDERING_SECTOR_04...', 'GENE_REPORT: LOADED'],
-  5: ['RENDERING_SECTOR_05...', 'COORDINATE_MAP: LOADED'],
-  6: ['RENDERING_SECTOR_06...', 'FINAL_TRANSMISSION: ACTIVE'],
-}
-
-const GENDER_LABELS = { M: '男 (M)', F: '女 (F)', X: '其他 (X)' }
-
-let currentScreen = 1
-let state = null
-
-// ─── Helpers ─────────────────────────────────────────────────
-
-function pad2(n) {
-  return String(n).padStart(2, '0')
-}
-
-function randomInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
-function randomGlitchChar() {
-  return GLITCH_CHARS[randomInt(0, GLITCH_CHARS.length - 1)]
-}
-
-function getScreenEl(n) {
-  return document.querySelector(`.result-screen[data-screen="${n}"]`)
-}
-
-function updateTopBar(n) {
-  const bar = document.getElementById('screen-bar-tl')
-  if (bar) bar.textContent = `[VAULT-0 / SECTOR_${pad2(n)} / 06]`
-}
-
-async function flashScanLine() {
-  const scan = document.getElementById('scan-vertical')
-  if (!scan) return
-  scan.style.transition = 'opacity 80ms ease'
-  scan.style.opacity = '0.3'
-  await delay(80)
-  scan.style.opacity = ''
-  scan.style.transition = ''
-}
-
-async function showSwitchFlash(to) {
-  const flash = document.getElementById('result-switch-flash')
-  if (!flash) return
-  flash.textContent = `> LOADING_SECTOR_${pad2(to)}...`
-  flash.classList.add('is-visible')
-  await delay(300)
-  flash.classList.remove('is-visible')
-}
-
-function pulseScreenBorder() {
-  const screen = document.getElementById('screen')
-  screen?.classList.remove('result-pulse')
-  void screen?.offsetWidth
-  screen?.classList.add('result-pulse')
-}
-
-function glitchReveal(element, finalText) {
-  return new Promise((resolve) => {
-    const chars = [...finalText]
-    const fixed = new Array(chars.length).fill(false)
-
-    const render = () => {
-      element.textContent = chars.map((ch, i) => (fixed[i] ? ch : randomGlitchChar())).join('')
-      playGlitchClick()
-    }
-
-    const phase1 = setInterval(render, 40)
-    render()
-
-    setTimeout(() => {
-      clearInterval(phase1)
-      let fixIndex = 0
-      const phase2 = setInterval(() => {
-        if (fixIndex < chars.length) {
-          fixed[fixIndex] = true
-          playTypewriterClick(chars[fixIndex])
-          fixIndex += 1
-          element.textContent = chars.map((ch, i) => (fixed[i] ? ch : randomGlitchChar())).join('')
-        }
-      }, 50)
-
-      setTimeout(() => {
-        clearInterval(phase2)
-        element.textContent = finalText
-        element.classList.add('glitch-locked')
-        setTimeout(() => {
-          element.classList.remove('glitch-locked')
-          resolve()
-        }, 300)
-      }, 500)
-    }, 400)
-  })
-}
-
-async function printResultLine(container, text, className = '') {
-  const line = document.createElement('p')
-  line.className = `result-line has-prompt ${className}`.trim()
-  container.appendChild(line)
-  await typeText(line, text)
-  return line
-}
-
-async function clearResultLines(container) {
-  if (!container?.children.length) return
-  container.style.transition = 'opacity 400ms ease'
-  container.style.opacity = '0'
-  await delay(400)
-  container.innerHTML = ''
-  container.style.opacity = '1'
-  container.style.transition = ''
-}
-
-function waitForContinue() {
-  return new Promise((resolve) => {
-    const onKey = (e) => {
-      if (e.key === 'ArrowRight') finish()
-    }
-    const onClick = () => finish()
-
-    const finish = () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('click', onClick)
-      resolve()
-    }
-
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('click', onClick)
-  })
-}
-
-function showContinueHint(container, text = 'PRESS [→] OR CLICK TO CONTINUE') {
-  const hint = document.createElement('p')
-  hint.className = 'result-continue has-prompt'
-  hint.textContent = text
-  container.appendChild(hint)
-  return hint
-}
-
-// ─── Data ────────────────────────────────────────────────────
-
-function computeStats(playerChoices) {
-  const total = playerChoices.length
-  const aCount = playerChoices.filter((c) => c.choice === 'A').length
-  const choiceA_ratio = total ? aCount / total : 0
-  const avg_reaction = total
-    ? playerChoices.reduce((s, c) => s + (c.reaction_time || 0), 0) / total
-    : 0
-
-  const by_type = {}
-  for (const t of DECISION_TYPES) {
-    const typeChoices = playerChoices.filter((c) => c.decision_type === t)
-    const a = typeChoices.filter((c) => c.choice === 'A').length
-    by_type[t] = typeChoices.length ? a / typeChoices.length : 0
-  }
-
-  let slowest = playerChoices[0]
-  let fastest = playerChoices[0]
-  for (const c of playerChoices) {
-    if (!slowest || c.reaction_time > slowest.reaction_time) slowest = c
-    if (!fastest || c.reaction_time < fastest.reaction_time) fastest = c
-  }
-
-  return {
-    choiceA_ratio,
-    avg_reaction,
-    by_type,
-    slowest_round: slowest?.round ?? 0,
-    slowest_time: slowest ? (slowest.reaction_time / 1000).toFixed(1) : '0.0',
-    fastest_round: fastest?.round ?? 0,
-    fastest_time: fastest ? (fastest.reaction_time / 1000).toFixed(1) : '0.0',
-    total,
-  }
-}
-
-function calculateProfileType(stats) {
-  const aRatio = stats.choiceA_ratio
-  const bRatio = 1 - aRatio
-  if (aRatio >= 0.7) return 'RATIONAL_ARCHITECT'
-  if (bRatio >= 0.7) return 'EMOTIONAL_GUARDIAN'
-
-  const { by_type } = stats
-  const resourceA = (by_type['资源'] ?? 0) >= 0.5
-  const rulesA = (by_type['规则'] ?? 0) >= 0.5
-  const trustB = (by_type['信任'] ?? 0) < 0.5
-  const memoryB = (by_type['记忆'] ?? 0) < 0.5
-  if (resourceA && rulesA && trustB && memoryB) return 'PRAGMATIC_IDEALIST'
-  if ((by_type['AI'] ?? 1) < 0.3) return 'INDEPENDENT_THINKER'
-  return 'BALANCED_OBSERVER'
-}
-
-function aggregatePlayerCoordinates(allChoices) {
-  const map = new Map()
-  for (const c of allChoices) {
-    if (!map.has(c.player_id)) map.set(c.player_id, [])
-    map.get(c.player_id).push(c)
-  }
-  return [...map.entries()].map(([id, choices]) => {
-    const a = choices.filter((x) => x.choice === 'A').length
-    const ratio = choices.length ? a / choices.length : 0
-    const avg = choices.reduce((s, x) => s + (x.reaction_time || 0), 0) / (choices.length || 1)
-    return { id, x: ratio * 100, y: avg }
-  })
-}
-
-async function loadAllData(playerId) {
-  if (!supabase) throw new Error('SUPABASE_NOT_CONFIGURED')
-
-  const { data: player, error: playerErr } = await supabase
-    .from('players')
-    .select('*')
-    .eq('id', playerId)
-    .single()
-  if (playerErr) throw playerErr
-
-  const { data: choices, error: choicesErr } = await supabase
-    .from('choices')
-    .select('*')
-    .eq('player_id', playerId)
-    .order('round', { ascending: true })
-  if (choicesErr) throw choicesErr
-
-  const { data: allPlayers, error: allPlayersErr } = await supabase.from('players').select('id')
-  if (allPlayersErr) throw allPlayersErr
-
-  const { data: allChoices, error: allChoicesErr } = await supabase.from('choices').select('*')
-  if (allChoicesErr) throw allChoicesErr
-
-  const stats = computeStats(choices || [])
-  const profileType = calculateProfileType(stats)
-
-  return {
-    player,
-    choices: choices || [],
-    allPlayers: allPlayers || [],
-    allChoices: allChoices || [],
-    stats,
-    profileType,
-    coordinates: aggregatePlayerCoordinates(allChoices || []),
-  }
-}
-
-// ─── Screen Switch ───────────────────────────────────────────
-
-async function switchScreen(from, to) {
-  const fromEl = getScreenEl(from)
-  const toEl = getScreenEl(to)
-  if (!fromEl || !toEl) return
-
-  await showSwitchFlash(to)
-
-  fromEl.classList.remove('result-screen--active')
-  fromEl.classList.add('result-screen--exit')
-  flashScanLine()
-
-  await delay(500)
-
-  fromEl.classList.remove('result-screen--exit')
-  fromEl.style.opacity = '0'
-  fromEl.style.transform = 'translateX(100%)'
-  fromEl.style.pointerEvents = 'none'
-
-  toEl.classList.add('result-screen--enter')
-  toEl.style.opacity = '0'
-  toEl.style.transform = 'translateX(80px) scale(1.05)'
-  toEl.style.filter = 'blur(4px)'
-  toEl.style.pointerEvents = 'none'
-
-  await delay(50)
-
-  toEl.classList.remove('result-screen--enter')
-  toEl.classList.add('result-screen--enter-active', 'result-screen--active')
-  toEl.style.opacity = '1'
-  toEl.style.transform = 'translateX(0) scale(1)'
-  toEl.style.filter = 'blur(0)'
-  toEl.style.pointerEvents = 'auto'
-
-  pulseScreenBorder()
-  await delay(400)
-
-  toEl.classList.remove('result-screen--enter-active')
-  toEl.style.transform = ''
-  toEl.style.filter = ''
-  toEl.style.opacity = ''
-
-  currentScreen = to
-  updateTopBar(to)
-
-  const logs = SECTOR_LOGS[to] || []
-  for (const msg of logs) {
-    appendCornerLog(msg)
-  }
-}
-
-// ─── Chart Helpers ───────────────────────────────────────────
-
-const chartDefaults = {
-  responsive: false,
-  animation: { duration: 1000 },
-  plugins: { legend: { display: false } },
-}
-
-const glowPlugin = {
-  id: 'playerGlow',
-  afterDatasetsDraw(chart, _args, opts) {
-    const { ctx } = chart
-    const meta = chart.getDatasetMeta(opts.datasetIndex ?? 1)
-    if (!meta?.data?.length) return
-
-    meta.data.forEach((point, i) => {
-      const { x, y } = point.getProps(['x', 'y'], true)
-      const isRed = opts.color === 'red'
-      ctx.save()
-      ctx.beginPath()
-      ctx.arc(x, y, opts.radius ?? 16, 0, Math.PI * 2)
-      ctx.fillStyle = isRed ? 'rgba(255,68,68,0.25)' : 'rgba(0,255,65,0.3)'
-      ctx.fill()
-      ctx.restore()
-      if (isRed && i === 0) {
-        ctx.save()
-        ctx.strokeStyle = 'rgba(255,68,68,0.6)'
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.arc(x, y, 14, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.restore()
+  // 注入样式
+  if (!document.getElementById('result-styles')) {
+    const style = document.createElement('style')
+    style.id = 'result-styles'
+    style.textContent = `
+      @keyframes rs-scan {
+        0% { top: 0; } 100% { top: 100%; }
       }
-    })
-  },
-}
-
-function buildRadarChart(canvas, stats) {
-  return new Chart(canvas, {
-    type: 'radar',
-    data: {
-      labels: DECISION_TYPES,
-      datasets: [
-        {
-          data: DECISION_TYPES.map((t) => Math.round((stats.by_type[t] || 0) * 100)),
-          backgroundColor: 'rgba(0,255,65,0.08)',
-          borderColor: '#00ff41',
-          pointBackgroundColor: '#00ff41',
-          pointRadius: 4,
-          borderWidth: 1,
-        },
-      ],
-    },
-    options: {
-      ...chartDefaults,
-      scales: {
-        r: {
-          min: 0,
-          max: 100,
-          ticks: { display: false },
-          grid: { color: 'rgba(0,255,65,0.2)' },
-          angleLines: { color: 'rgba(0,255,65,0.2)' },
-          pointLabels: { color: 'rgba(0,255,65,0.7)', font: { family: 'VT323', size: 14 } },
-        },
-      },
-    },
-  })
-}
-
-function buildHeartbeatChart(canvas, choices, stats) {
-  const sorted = [...choices].sort((a, b) => a.round - b.round)
-  const labels = sorted.map((c) => `ROUND_${pad2(c.round)}`)
-  const data = sorted.map((c) => c.reaction_time)
-  const pointColors = sorted.map((c) => {
-    if (c.round === stats.slowest_round) return '#ff4444'
-    if (c.round === stats.fastest_round) return '#ffffff'
-    return '#00ff41'
-  })
-  const pointRadii = sorted.map((c) => {
-    if (c.round === stats.slowest_round) return 8
-    if (c.round === stats.fastest_round) return 6
-    return 5
-  })
-
-  return new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        {
-          data,
-          borderColor: '#00ff41',
-          backgroundColor: 'rgba(0,255,65,0.05)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.2,
-          pointStyle: 'rect',
-          pointBackgroundColor: pointColors,
-          pointBorderColor: pointColors,
-          pointRadius: pointRadii,
-        },
-      ],
-    },
-    options: {
-      ...chartDefaults,
-      scales: {
-        x: {
-          ticks: { color: 'rgba(0,255,65,0.6)', font: { family: 'Press Start 2P', size: 9 } },
-          grid: { color: 'rgba(0,255,65,0.1)' },
-        },
-        y: {
-          ticks: { color: 'rgba(0,255,65,0.5)', font: { family: 'VT323', size: 14 } },
-          grid: { color: 'rgba(0,255,65,0.1)' },
-        },
-      },
-    },
-  })
-}
-
-function buildScatterChart(canvas, coordinates, playerId, options = {}) {
-  const others = coordinates.filter((p) => p.id !== playerId)
-  const current = coordinates.find((p) => p.id === playerId)
-
-  const datasets = [
-    {
-      label: 'others',
-      data: others.map((p) => ({ x: p.x, y: p.y })),
-      backgroundColor: 'rgba(0,255,65,0.3)',
-      pointRadius: options.large ? 5 : 4,
-      pointHoverRadius: options.large ? 6 : 5,
-    },
-  ]
-
-  if (current) {
-    datasets.push({
-      label: 'current',
-      data: [{ x: current.x, y: current.y }],
-      backgroundColor: options.red ? '#ff4444' : '#00ff41',
-      pointRadius: options.large ? 12 : 10,
-      pointHoverRadius: options.large ? 14 : 12,
-    })
+      @keyframes rs-blink {
+        0%,100% { opacity:1; } 50% { opacity:0; }
+      }
+      @keyframes rs-pulse {
+        0%,100% { box-shadow: 0 0 10px rgba(0,255,65,0.3); }
+        50% { box-shadow: 0 0 25px rgba(0,255,65,0.7); }
+      }
+      .rs-hint {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 9px;
+        color: rgba(0,255,65,0.4);
+        animation: rs-blink 1.5s infinite;
+        margin-top: 24px;
+      }
+      .rs-title {
+        font-family: 'Press Start 2P', monospace;
+        font-size: 10px;
+        color: rgba(0,255,65,0.6);
+        margin-bottom: 20px;
+        letter-spacing: 2px;
+      }
+    `
+    document.head.appendChild(style)
   }
 
-  return new Chart(canvas, {
-    type: 'scatter',
-    data: { datasets },
-    options: {
-      ...chartDefaults,
-      plugins: {
-        legend: { display: false },
-        playerGlow: {
-          datasetIndex: 1,
-          radius: options.large ? 20 : 16,
-          color: options.red ? 'red' : 'green',
-        },
-      },
-      scales: {
-        x: {
-          min: 0,
-          max: 100,
-          title: {
-            display: true,
-            text: 'EMOTIONAL ←→ RATIONAL',
-            color: 'rgba(0,255,65,0.6)',
-            font: { family: 'Press Start 2P', size: 8 },
-          },
-          ticks: { color: 'rgba(0,255,65,0.5)', font: { family: 'VT323', size: 12 } },
-          grid: { color: 'rgba(0,255,65,0.1)' },
-        },
-        y: {
-          title: {
-            display: true,
-            text: 'FAST ↑ / SLOW ↓',
-            color: 'rgba(0,255,65,0.6)',
-            font: { family: 'Press Start 2P', size: 8 },
-          },
-          ticks: { color: 'rgba(0,255,65,0.5)', font: { family: 'VT323', size: 12 } },
-          grid: { color: 'rgba(0,255,65,0.1)' },
-        },
-      },
-    },
-    plugins: [glowPlugin],
-  })
-}
-
-// ─── Screen 1 ────────────────────────────────────────────────
-
-async function runScreen1() {
-  const container = document.getElementById('screen1-lines')
-  const card = document.getElementById('screen1-profile')
-  if (!container) return
-
-  await printResultLine(container, 'EVALUATION_COMPLETE.')
-  await printResultLine(container, 'BIOMETRIC_SEQUENCE_ARCHIVED.')
-  await delay(1000)
-  await clearResultLines(container)
-
-  await printResultLine(container, 'WELCOME TO VAULT-0.')
-  await delay(1500)
-  await clearResultLines(container)
-
-  await printResultLine(container, '走廊照明：运行中')
-  await printResultLine(container, '生命维持系统：运行中')
-  const popLine = await printResultLine(container, '居住区人员：——')
-  await delay(2000)
-  popLine.textContent = '> 居住区人员：'
-  const zero = document.createElement('span')
-  zero.className = 'result-line--error'
-  zero.textContent = '0'
-  popLine.appendChild(zero)
-  await delay(1500)
-
-  await printResultLine(container, '...')
-  await printResultLine(container, '...')
-  await delay(400)
-
-  await printResultLine(container, '正在为您导航至居住区。', 'result-line--ai')
-  await printResultLine(container, '请注意：部分区域正在进行例行维护。', 'result-line--ai')
-  await printResultLine(container, '请注意：部分区域正在进行例行维护。', 'result-line--ai')
-
-  const loopLine = document.createElement('p')
-  loopLine.className = 'result-line has-prompt result-line--ai'
-  container.appendChild(loopLine)
-  await typeText(loopLine, '请注意：部分区域正在进行例行————')
-
-  const errLine = document.createElement('p')
-  errLine.className = 'result-line has-prompt result-line--error'
-  container.appendChild(errLine)
-  await glitchReveal(errLine, '[SYSTEM_ERROR: LOOP_DETECTED / MEMORY_OVERFLOW]')
-  await delay(1000)
-
-  await printResultLine(container, '幸存者，', 'result-line--ai')
-  await printResultLine(container, '我需要告诉你一些事情。', 'result-line--ai')
-  await delay(1200)
-
-  await printResultLine(container, '上一位居民离开VAULT-0的时间是：', 'result-line--ai')
-  const corruptLine = document.createElement('p')
-  corruptLine.className = 'result-line has-prompt result-line--error'
-  container.appendChild(corruptLine)
-  await glitchReveal(corruptLine, '[DATA_CORRUPTED / TIMESTAMP_UNREADABLE]')
-  await delay(800)
-
-  const { player, stats, profileType } = state
-  const shortId = String(playerId()).slice(0, 4).toUpperCase()
-  card.innerHTML = `
-SURVIVOR_ID : #${shortId}
-DATE        : DAY 2891 / YEAR 08 A.C.
-GENDER      : ${GENDER_LABELS[player.gender] || player.gender}
-AGE         : ${player.age}
-OCCUPATION  : ${player.occupation}
-DECISIONS   : ${stats.total}
-PROFILE     : ${profileType}
-`
-  card.classList.add('is-visible')
-  showContinueHint(container)
-  await waitForContinue()
-}
-
-// ─── Screen 2 ────────────────────────────────────────────────
-
-async function runScreen2() {
-  const title = document.getElementById('screen2-title')
-  const comments = document.getElementById('screen2-comments')
-  const canvas = document.getElementById('screen2-chart')
-
-  if (title) {
-    title.className = 'result-title has-prompt'
-    await glitchReveal(title, 'PSYCHOLOGICAL_RADAR')
-  }
-
-  if (canvas) buildRadarChart(canvas, state.stats)
-
-  const lines = PROFILE_COMMENTS[state.profileType] || PROFILE_COMMENTS.BALANCED_OBSERVER
-  for (const text of lines) {
-    await printResultLine(comments, text)
-  }
-
-  showContinueHint(comments)
-  await waitForContinue()
-}
-
-// ─── Screen 3 ────────────────────────────────────────────────
-
-async function runScreen3() {
-  const title = document.getElementById('screen3-title')
-  const notes = document.getElementById('screen3-notes')
-  const canvas = document.getElementById('screen3-chart')
-  const { stats, choices } = state
-
-  if (title) await typeText(title, 'DECISION_HEARTBEAT')
-  if (canvas) buildHeartbeatChart(canvas, choices, stats)
-
-  await printResultLine(
-    notes,
-    `你在第${stats.slowest_round}题停留了${stats.slowest_time}秒。`,
-    'result-comment'
-  )
-  await printResultLine(
-    notes,
-    `那是「${ROUND_TITLES[stats.slowest_round] || '未知'}」。`,
-    'result-comment'
-  )
-  await printResultLine(
-    notes,
-    `你在第${stats.fastest_round}题只用了${stats.fastest_time}秒。`,
-    'result-comment'
-  )
-
-  showContinueHint(notes)
-  await waitForContinue()
-}
-
-// ─── Screen 4 ────────────────────────────────────────────────
-
-async function renderGeneBar(row, percent, suffix) {
-  const barEl = row.querySelector('.result-gene-bar')
-  const pctEl = row.querySelector('.result-gene-pct')
-  const filled = Math.round(Math.min(100, Math.max(0, percent)) / 10)
-  row.classList.add('is-visible')
-
-  for (let i = 0; i <= filled; i++) {
-    const bar = '█'.repeat(i) + '░'.repeat(10 - i)
-    if (barEl) barEl.textContent = bar
-    if (pctEl) pctEl.textContent = suffix
-    if (i > 0) playBarFillTick()
-    await delay(80)
-  }
-}
-
-async function runScreen4() {
-  const title = document.getElementById('screen4-title')
-  const rows = document.getElementById('screen4-rows')
-  const { stats } = state
-
-  if (title) await typeText(title, 'CIVILIZATION_GENE_REPORT')
-
-  const items = [
-    { label: '理性决策占比', pct: stats.choiceA_ratio * 100, suffix: `${Math.round(stats.choiceA_ratio * 100)}%` },
-    { label: '感性决策占比', pct: (1 - stats.choiceA_ratio) * 100, suffix: `${Math.round((1 - stats.choiceA_ratio) * 100)}%` },
-    {
-      label: '平均决策时长',
-      pct: Math.min(100, (stats.avg_reaction / 30000) * 100),
-      suffix: `${(stats.avg_reaction / 1000).toFixed(1)}s`,
-    },
-    { label: '信任他人倾向', pct: (stats.by_type['信任'] || 0) * 100, suffix: `${Math.round((stats.by_type['信任'] || 0) * 100)}%` },
-    { label: '遵守规则倾向', pct: (stats.by_type['规则'] || 0) * 100, suffix: `${Math.round((stats.by_type['规则'] || 0) * 100)}%` },
-    {
-      label: '记忆保存倾向',
-      pct: (1 - (stats.by_type['记忆'] || 0)) * 100,
-      suffix: `${Math.round((1 - (stats.by_type['记忆'] || 0)) * 100)}%`,
-    },
-  ]
-
-  for (const item of items) {
-    const row = document.createElement('div')
-    row.className = 'result-gene-row'
-    row.innerHTML = `<span class="result-gene-label">${item.label}</span> <span class="result-gene-bar">░░░░░░░░░░</span> <span class="result-gene-pct"></span>`
-    rows.appendChild(row)
-    await delay(300)
-    await renderGeneBar(row, item.pct, item.suffix)
-  }
-
-  showContinueHint(rows)
-  await waitForContinue()
-}
-
-// ─── Screen 5 ────────────────────────────────────────────────
-
-async function runScreen5() {
-  const title = document.getElementById('screen5-title')
-  const notes = document.getElementById('screen5-notes')
-  const canvas = document.getElementById('screen5-chart')
-  const btn = document.getElementById('screen5-upload')
-  const { stats, coordinates, allPlayers } = state
-  const pid = playerId()
-  const current = coordinates.find((p) => p.id === pid)
-
-  if (title) await typeText(title, 'SURVIVOR_COORDINATES')
-  if (canvas) buildScatterChart(canvas, coordinates, pid)
-
-  await printResultLine(notes, `数据库中共有 ${allPlayers.length} 名幸存者留下了记录。`, 'result-comment')
-  await printResultLine(
-    notes,
-    `你的坐标：理性指数 ${Math.round((current?.x ?? stats.choiceA_ratio * 100))}% / 决策速度 ${Math.round(current?.y ?? stats.avg_reaction)}ms`,
-    'result-comment'
-  )
-
-  await new Promise((resolve) => {
-    btn?.addEventListener(
-      'click',
-      async () => {
-        btn.disabled = true
-        try {
-          if (supabase) {
-            await supabase
-              .from('players')
-              .update({ result_type: state.profileType })
-              .eq('id', pid)
-          }
-        } catch (err) {
-          console.error('[Supabase] result_type update:', err)
-        }
-        await printResultLine(notes, 'COORDINATES_UPLOADED. UNLOCKING_SECTOR_06...', 'result-comment')
-        await delay(2000)
-        resolve()
-      },
-      { once: true }
-    )
-  })
-}
-
-// ─── Screen 6 ────────────────────────────────────────────────
-
-async function runScreen6() {
-  const title = document.getElementById('screen6-title')
-  const preamble = document.getElementById('screen6-preamble')
-  const footer = document.getElementById('screen6-footer')
-  const canvas = document.getElementById('screen6-chart')
-  const pid = playerId()
-
-  if (title) await typeText(title, 'FINAL_TRANSMISSION')
-
-  const script = ['你的档案已保存。', 'VAULT-0的大门将为你保持开启。']
-  for (const text of script) {
-    await printResultLine(preamble, text, 'result-line--ai')
-    await delay(800)
-  }
-  await delay(1200)
-
-  await printResultLine(preamble, '如果你找到了他们——', 'result-line--ai')
-  await printResultLine(preamble, '请带他们回来。', 'result-line--ai')
-  await delay(1500)
-
-  await printResultLine(preamble, '这是我最后的协议。', 'result-line--ai')
-  await delay(2000)
-
-  if (canvas) {
-    canvas.width = 520
-    canvas.height = 280
-    buildScatterChart(canvas, state.coordinates, pid, { large: true, red: true })
-  }
-
-  await printResultLine(footer, '[VAULT-0]: 所有坐标已同步至寻人数据库。', 'result-comment')
-  await printResultLine(footer, '等待回应中...', 'result-comment')
-  await printResultLine(footer, '等待回应中...', 'result-comment')
-
-  const cursorLine = document.createElement('p')
-  cursorLine.className = 'result-line has-prompt result-comment'
-  cursorLine.innerHTML = '<span class="input-cursor">_</span>'
-  footer.appendChild(cursorLine)
-}
-
-// ─── Shell ───────────────────────────────────────────────────
-
-function playerId() {
-  return state?.playerId
-}
-
-function buildShell() {
-  document.getElementById('app').innerHTML = `
-    <div id="result-root">
-      <div id="result-stage">
-        <div id="result-switch-flash" aria-hidden="true"></div>
-        <section class="result-screen result-screen--active" data-screen="1">
-          <div id="screen1-lines" class="result-lines"></div>
-          <div id="screen1-profile" class="result-profile-card"></div>
-        </section>
-        <section class="result-screen" data-screen="2">
-          <p id="screen2-title" class="result-title has-prompt"></p>
-          <div class="result-chart-wrap"><canvas id="screen2-chart" width="300" height="300"></canvas></div>
-          <div id="screen2-comments" class="result-lines"></div>
-        </section>
-        <section class="result-screen" data-screen="3">
-          <p id="screen3-title" class="result-title has-prompt"></p>
-          <div class="result-chart-wrap"><canvas id="screen3-chart" width="480" height="220"></canvas></div>
-          <div id="screen3-notes" class="result-lines"></div>
-        </section>
-        <section class="result-screen" data-screen="4">
-          <p id="screen4-title" class="result-title has-prompt"></p>
-          <div id="screen4-rows" class="result-gene-lines"></div>
-        </section>
-        <section class="result-screen" data-screen="5">
-          <p id="screen5-title" class="result-title has-prompt"></p>
-          <div class="result-chart-wrap"><canvas id="screen5-chart" width="480" height="260"></canvas></div>
-          <div id="screen5-notes" class="result-lines"></div>
-          <button type="button" id="screen5-upload" class="result-upload-btn">[将我的坐标录入寻人数据库]</button>
-        </section>
-        <section class="result-screen" data-screen="6">
-          <p id="screen6-title" class="result-title has-prompt"></p>
-          <div id="screen6-preamble" class="result-lines"></div>
-          <div class="result-chart-wrap result-chart-wrap--large"><canvas id="screen6-chart" width="520" height="280"></canvas></div>
-          <div id="screen6-footer" class="result-lines"></div>
-        </section>
-      </div>
-      <aside id="corner-log">
-        <div id="corner-log-scroll" class="corner-log-scroll"></div>
-      </aside>
-    </div>
+  // 加载提示
+  const loading = document.createElement('div')
+  loading.style.cssText = `
+    position:absolute; top:48px; left:48px;
+    font-family:VT323,monospace; font-size:18px;
+    color:rgba(0,255,65,0.7); line-height:2;
   `
-}
+  resultView.appendChild(loading)
 
-async function showLoadError(message) {
-  buildShell()
-  const container = document.getElementById('screen1-lines')
-  if (container) {
-    await printResultLine(container, `[ERROR] ${message}`, 'result-line--error')
+  async function addLoadingLine(text) {
+    const div = document.createElement('div')
+    loading.appendChild(div)
+    if (window.typeText) {
+      await window.typeText(div, text, { charDelay: 25, playSound: false })
+    } else {
+      div.textContent = text
+    }
+    await sleep(300)
   }
-}
 
-// ─── Init ────────────────────────────────────────────────────
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
-async function init() {
-  const params = new URLSearchParams(location.search)
-  const id = params.get('player_id') || localStorage.getItem('player_id')
+  await addLoadingLine('> FETCHING_ARCHIVE_DATA...')
+  await addLoadingLine('> DECRYPTING_PSYCHOLOGICAL_PROFILE...')
 
-  if (!id) {
-    window.location.href = '/index.html'
+  // 读取数据
+  const STATE = window.STATE
+  const supabase = window.supabase
+  const playerId = STATE.playerId
+
+  const { data: choices } = await supabase
+    .from('choices').select('*').eq('player_id', playerId)
+  const { data: allPlayers } = await supabase
+    .from('players').select('*')
+  const { data: allChoices } = await supabase
+    .from('choices').select('*')
+
+  console.log('[DEBUG] allPlayers count:', allPlayers?.length)
+  console.log('[DEBUG] allChoices count:', allChoices?.length)
+  console.log('[DEBUG] current playerId:', playerId)
+  console.log('[DEBUG] current choices:', choices?.length)
+
+  if (!choices || choices.length === 0) {
+    resultView.innerHTML =
+      '<div style="color:#ff4444;padding:48px;font-family:VT323,monospace;font-size:20px">' +
+      '> [ERROR] NO_DATA_FOUND<br>> 请重新开始游戏</div>'
     return
   }
 
-  initVisualLayer()
-  setupAudioUnlock()
-  buildShell()
-  updateTopBar(1)
-  appendCornerLog('RENDERING_SECTOR_01...')
-  appendCornerLog('ARCHIVE_READER: ONLINE')
+  await addLoadingLine('> PROFILE_READY.')
+  await sleep(400)
+  loading.style.transition = 'opacity 0.6s'
+  loading.style.opacity = '0'
+  await sleep(600)
+  resultView.innerHTML = ''
 
-  try {
-    const data = await loadAllData(id)
-    state = { ...data, playerId: id }
-  } catch (err) {
-    console.error(err)
-    await showLoadError(err.message || 'DATA_LOAD_FAILED')
+  // 计算统计数据
+  const totalRounds = choices.length
+  const choiceACount = choices.filter(c => c.choice === 'A').length
+  const choiceBCount = totalRounds - choiceACount
+  const ratioA = choiceACount / totalRounds
+  const avgReaction = choices.reduce((s,c) => s+c.reaction_time, 0) / totalRounds
+  const types = ['资源','信任','记忆','规则','AI']
+  const byType = {}
+  types.forEach(t => {
+    const tc = choices.filter(c => c.decision_type === t)
+    const a = tc.filter(c => c.choice === 'A').length
+    byType[t] = {
+      total: tc.length, A: a, B: tc.length-a,
+      ratioA: tc.length ? a/tc.length : 0,
+      avgRT: tc.length
+        ? tc.reduce((s,c)=>s+c.reaction_time,0)/tc.length : 0
+    }
+  })
+  const slowestType = types.reduce((a,b)=>
+    byType[a].avgRT > byType[b].avgRT ? a : b)
+  let profileType = 'BALANCED_OBSERVER'
+  if (ratioA >= 0.7) profileType = 'RATIONAL_ARCHITECT'
+  else if (ratioA <= 0.3) profileType = 'EMOTIONAL_GUARDIAN'
+  else if (byType['AI'].ratioA <= 0.4) profileType = 'INDEPENDENT_THINKER'
+  else if (byType['资源'].ratioA > 0.6 && byType['信任'].ratioA < 0.5)
+    profileType = 'PRAGMATIC_IDEALIST'
+  const playerRank = allPlayers
+    ? allPlayers.findIndex(p=>p.id===playerId)+1 : '???'
+
+  const D = {
+    playerId, choices, allPlayers, allChoices,
+    totalRounds, choiceACount, choiceBCount,
+    ratioA, avgReaction, byType, types,
+    slowestType, profileType, playerRank,
+    STATE, supabase, sleep
+  }
+
+  // 构建七屏框架
+  const screens = []
+  for (let i = 1; i <= 7; i++) {
+    const s = document.createElement('div')
+    s.id = `rs-${i}`
+    s.style.cssText = `
+      position:absolute;
+      top:36px; left:0; right:0; bottom:36px;
+      display:${i===1?'block':'none'};
+      box-sizing:border-box;
+      overflow:hidden;
+    `
+    resultView.appendChild(s)
+    screens.push(s)
+  }
+
+  // 底部导航点
+  const navBar = document.createElement('div')
+  navBar.style.cssText = `
+    position:absolute; bottom:40px; left:50%;
+    transform:translateX(-50%);
+    display:flex; gap:10px; z-index:20;
+  `
+  resultView.appendChild(navBar)
+  for (let i = 1; i <= 7; i++) {
+    const dot = document.createElement('div')
+    dot.id = `rsdot-${i}`
+    dot.style.cssText = `
+      width:7px; height:7px;
+      border:1px solid rgba(0,255,65,0.5);
+      cursor:pointer;
+      transition:background .3s;
+      background:${i===1?'#00ff41':'transparent'};
+    `
+    dot.onclick = () => goTo(i)
+    navBar.appendChild(dot)
+  }
+
+  let current = 1
+  const initialized = new Array(8).fill(false)
+
+  function updateNav(n) {
+    for (let i = 1; i <= 7; i++) {
+      const d = document.getElementById(`rsdot-${i}`)
+      if (d) d.style.background = i===n ? '#00ff41' : 'transparent'
+    }
+  }
+
+  async function goTo(n) {
+    if (n<1||n>7||n===current) return
+    const fromEl = screens[current-1]
+    const toEl = screens[n-1]
+
+    fromEl.style.transition = 'transform .5s ease, opacity .5s ease'
+    fromEl.style.transform = 'translateX(-80px)'
+    fromEl.style.opacity = '0'
+    await sleep(500)
+    fromEl.style.display = 'none'
+    fromEl.style.transform = ''
+    fromEl.style.opacity = ''
+    fromEl.style.transition = ''
+
+    toEl.style.display = 'block'
+    toEl.style.transform = 'translateX(80px) scale(1.05)'
+    toEl.style.filter = 'blur(3px)'
+    toEl.style.opacity = '0'
+    toEl.style.transition = 'transform .4s ease, opacity .4s ease, filter .4s ease'
+    await sleep(20)
+    toEl.style.transform = 'translateX(0) scale(1)'
+    toEl.style.filter = 'blur(0)'
+    toEl.style.opacity = '1'
+    await sleep(400)
+    toEl.style.transition = ''
+
+    current = n
+    updateNav(n)
+
+    if (!initialized[n]) {
+      initialized[n] = true
+      SCREENS[n](toEl, D)
+    }
+  }
+
+  // 键盘导航
+  const keyHandler = (e) => {
+    if (e.key === 'ArrowRight') goTo(current+1)
+    if (e.key === 'ArrowLeft') goTo(current-1)
+  }
+  document.addEventListener('keydown', keyHandler)
+
+  // 七屏内容映射
+  const SCREENS = {
+    1: rs_screen1,
+    2: rs_screen2,
+    3: rs_screen3,
+    4: rs_screen4,
+    5: rs_screen5,
+    6: (el,d) => rs_screen6(el, d, goTo),
+    7: (el,d) => rs_screen7(el, d)
+  }
+
+  // 初始化第一屏
+  initialized[1] = true
+  SCREENS[1](screens[0], D)
+}
+
+// ===== 第一屏：幸存者身份确认 =====
+async function rs_screen1(el, D) {
+  const { playerId, totalRounds, profileType, STATE, sleep } = D
+  const shortId = playerId.replace(/-/g,'').substring(0,6).toUpperCase()
+
+  el.style.cssText += `
+    display:flex; flex-direction:column;
+    justify-content:center; align-items:flex-start;
+    padding:0 10%;
+  `
+
+  // 滚动编号
+  const idEl = document.createElement('div')
+  idEl.style.cssText = `
+    font-family:'Press Start 2P',monospace;
+    font-size:32px; color:#00ff41;
+    text-shadow:0 0 20px #00ff41, 0 0 40px rgba(0,255,65,0.4);
+    margin-bottom:32px; letter-spacing:6px;
+  `
+  el.appendChild(idEl)
+
+  const roll = setInterval(() => {
+    const r = Math.random().toString(36).substring(2,8).toUpperCase()
+    idEl.textContent = `#${r}`
+  }, 60)
+  await sleep(2500)
+  clearInterval(roll)
+  idEl.textContent = `#${shortId}`
+  await sleep(300)
+
+  // 档案卡
+  const card = document.createElement('div')
+  card.style.cssText = `
+    border:1px dashed rgba(0,255,65,0.35);
+    padding:28px 36px;
+    min-width:520px;
+    box-shadow:0 0 24px rgba(0,255,65,0.08),
+               inset 0 0 24px rgba(0,255,65,0.03);
+    animation:rs-pulse 3s infinite;
+  `
+  el.appendChild(card)
+
+  const rows = [
+    ['GENDER',   STATE.gender || '--'],
+    ['AGE',      STATE.age || '--'],
+    ['FUNCTION', STATE.occupation || '--'],
+    ['MODE',     STATE.isBusy ? '忙碌模式' : '常规模式'],
+    ['DECISIONS', totalRounds],
+    ['TIMESTAMP', 'DAY 2891 / YEAR 08 A.C.'],
+    ['PROFILE',  profileType],
+  ]
+
+  for (const [k, v] of rows) {
+    await sleep(120)
+    const row = document.createElement('div')
+    row.style.cssText = `
+      display:flex; gap:20px; align-items:baseline;
+      border-bottom:1px solid rgba(0,255,65,0.08);
+      padding:6px 0;
+    `
+    const key = document.createElement('span')
+    key.style.cssText = `
+      font-family:'Press Start 2P',monospace;
+      font-size:8px; color:rgba(0,255,65,0.4);
+      width:100px; flex-shrink:0;
+      line-height:2.5;
+    `
+    key.textContent = k
+    const val = document.createElement('span')
+    val.style.cssText = `
+      font-family:VT323,monospace;
+      font-size:22px; color:rgba(0,255,65,0.9);
+    `
+    val.textContent = v
+    row.appendChild(key)
+    row.appendChild(val)
+    card.appendChild(row)
+  }
+
+  await sleep(400)
+  const hint = document.createElement('div')
+  hint.className = 'rs-hint'
+  hint.textContent = '> PRESS → OR SCROLL TO CONTINUE'
+  el.appendChild(hint)
+}
+
+// ===== 第二屏：人格雷达图 =====
+async function rs_screen2(el, D) {
+  const { byType, types, profileType, sleep } = D
+
+  el.style.cssText += `
+    display:flex; align-items:center;
+    justify-content:center; padding:20px 32px;
+    box-sizing:border-box;
+  `
+
+  const wrap = document.createElement('div')
+  wrap.style.cssText = `
+    display:flex; width:100%; height:100%;
+    align-items:center; gap:0;
+  `
+  el.appendChild(wrap)
+
+  // 左侧
+  const leftPanel = document.createElement('div')
+  leftPanel.style.cssText = `
+    flex:0 0 58%; display:flex;
+    flex-direction:column; align-items:center;
+    justify-content:center; height:100%;
+  `
+  wrap.appendChild(leftPanel)
+
+  const titleL = document.createElement('div')
+  titleL.className = 'rs-title'
+  titleL.textContent = '> PSYCHOLOGICAL_RADAR'
+  leftPanel.appendChild(titleL)
+
+  // Canvas 雷达扫描仪
+  const canvas = document.createElement('canvas')
+  const SIZE = 500
+  canvas.width = SIZE
+  canvas.height = SIZE
+  canvas.style.cssText = `
+    cursor: crosshair;
+    display: block;
+  `
+  leftPanel.appendChild(canvas)
+
+  const ctx = canvas.getContext('2d')
+  const CX = SIZE / 2
+  const CY = SIZE / 2
+  const R = 195
+  const N = types.length
+  const values = types.map(t => byType[t].ratioA)
+
+  // 鼠标位置
+  let mouseX = -999, mouseY = -999
+  let hoveredIdx = -1
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect()
+    mouseX = e.clientX - rect.left
+    mouseY = e.clientY - rect.top
+  })
+  canvas.addEventListener('mouseleave', () => {
+    mouseX = -999; mouseY = -999; hoveredIdx = -1
+  })
+
+  // 轴角度
+  function axisAngle(i) {
+    return (i / N) * Math.PI * 2 - Math.PI / 2
+  }
+
+  // 数据点坐标
+  function dataPoint(i, scale) {
+    const a = axisAngle(i)
+    const r = values[i] * R * scale
+    return [CX + Math.cos(a)*r, CY + Math.sin(a)*r]
+  }
+
+  // 生长动画
+  let growScale = 0
+  let scanAngle = -Math.PI / 2
+  let breathe = 0
+  let trailAngles = []
+  const MAX_TRAIL = 60
+
+  // 扫描轨迹（余晖）
+  const offCanvas = document.createElement('canvas')
+  offCanvas.width = SIZE
+  offCanvas.height = SIZE
+  const offCtx = offCanvas.getContext('2d')
+
+  let lastTime = null
+  let animating = true
+
+  function draw(now) {
+    if (!lastTime) lastTime = now
+    const dt = now - lastTime
+    lastTime = now
+
+    if (growScale < 1) {
+      growScale = Math.min(1, growScale + dt / 1600)
+    }
+    const ease = 1 - Math.pow(1 - growScale, 3)
+    scanAngle += dt * 0.0018
+    breathe += dt * 0.002
+
+    // 检测悬停
+    hoveredIdx = -1
+    if (mouseX > 0) {
+      for (let i = 0; i < N; i++) {
+        const [px, py] = dataPoint(i, ease)
+        const dist = Math.hypot(mouseX - px, mouseY - py)
+        if (dist < 18) { hoveredIdx = i; break }
+      }
+    }
+
+    ctx.clearRect(0, 0, SIZE, SIZE)
+
+    // 背景网格
+    for (let ring = 1; ring <= 5; ring++) {
+      const rr = (ring / 5) * R
+      ctx.beginPath()
+      for (let i = 0; i <= N; i++) {
+        const a = axisAngle(i % N)
+        const x = CX + Math.cos(a)*rr
+        const y = CY + Math.sin(a)*rr
+        i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y)
+      }
+      ctx.strokeStyle = ring === 5
+        ? 'rgba(0,255,65,0.2)' : 'rgba(0,255,65,0.07)'
+      ctx.lineWidth = ring === 5 ? 1.5 : 1
+      ctx.stroke()
+
+      // 圆环（很淡）
+      ctx.beginPath()
+      ctx.arc(CX, CY, rr, 0, Math.PI*2)
+      ctx.strokeStyle = 'rgba(0,255,65,0.04)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+    }
+
+    // 轴线
+    for (let i = 0; i < N; i++) {
+      const a = axisAngle(i)
+      ctx.beginPath()
+      ctx.moveTo(CX, CY)
+      ctx.lineTo(CX + Math.cos(a)*R, CY + Math.sin(a)*R)
+      ctx.strokeStyle = 'rgba(0,255,65,0.12)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      // 轴标签
+      const lx = CX + Math.cos(a)*(R+26)
+      const ly = CY + Math.sin(a)*(R+26)
+      ctx.fillStyle = hoveredIdx === i
+        ? '#00ff41' : 'rgba(0,255,65,0.65)'
+      ctx.font = "8px 'Press Start 2P'"
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(types[i], lx, ly)
+    }
+
+    // 余晖：从扫描线向后渐变消失，很窄很淡
+    const trailLen = Math.PI * 0.35
+    for (let t = 0; t < 40; t++) {
+      const ta = scanAngle - (t / 40) * trailLen
+      const alpha = (1 - t/40) * 0.06
+      ctx.beginPath()
+      ctx.moveTo(CX, CY)
+      ctx.arc(CX, CY, R, ta - Math.PI/60, ta)
+      ctx.closePath()
+      ctx.fillStyle = `rgba(0,255,65,${alpha})`
+      ctx.fill()
+    }
+
+    // 扫描线
+    ctx.beginPath()
+    ctx.moveTo(CX, CY)
+    ctx.lineTo(
+      CX + Math.cos(scanAngle)*R,
+      CY + Math.sin(scanAngle)*R
+    )
+    ctx.strokeStyle = 'rgba(0,255,65,0.9)'
+    ctx.lineWidth = 1.5
+    ctx.shadowBlur = 8
+    ctx.shadowColor = '#00ff41'
+    ctx.stroke()
+    ctx.shadowBlur = 0
+
+    // 数据填充（呼吸感）
+    const breathAlpha = 0.08 + Math.sin(breathe)*0.04
+    ctx.beginPath()
+    for (let i = 0; i <= N; i++) {
+      const [px, py] = dataPoint(i % N, ease)
+      i === 0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py)
+    }
+    ctx.fillStyle = `rgba(0,255,65,${breathAlpha})`
+    ctx.fill()
+
+    // 数据轮廓
+    ctx.beginPath()
+    for (let i = 0; i <= N; i++) {
+      const [px, py] = dataPoint(i % N, ease)
+      i === 0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py)
+    }
+    ctx.strokeStyle = '#00ff41'
+    ctx.lineWidth = 2
+    ctx.shadowBlur = 6
+    ctx.shadowColor = '#00ff41'
+    ctx.stroke()
+    ctx.shadowBlur = 0
+
+    // 数据点
+    for (let i = 0; i < N; i++) {
+      const [px, py] = dataPoint(i, ease)
+      const isHovered = hoveredIdx === i
+
+      // 扫描线扫过时发光
+      const angleDiff = ((scanAngle - axisAngle(i))
+        % (Math.PI*2) + Math.PI*2) % (Math.PI*2)
+      const justScanned = angleDiff < 0.3
+
+      const r = isHovered ? 12 : justScanned ? 9 : 6
+      const glow = isHovered ? 16 : justScanned ? 10 : 4
+
+      // 外圈
+      ctx.beginPath()
+      ctx.arc(px, py, r+4, 0, Math.PI*2)
+      ctx.strokeStyle = isHovered
+        ? 'rgba(255,255,255,0.4)'
+        : 'rgba(0,255,65,0.2)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      // 点
+      ctx.beginPath()
+      ctx.arc(px, py, r, 0, Math.PI*2)
+      ctx.fillStyle = isHovered ? '#ffffff' : '#00ff41'
+      ctx.shadowBlur = glow
+      ctx.shadowColor = isHovered ? '#ffffff' : '#00ff41'
+      ctx.fill()
+      ctx.shadowBlur = 0
+
+      // 悬停时更新详情
+      if (isHovered) {
+        updateDetail(i)
+      }
+    }
+
+    if (animating) requestAnimationFrame(draw)
+  }
+
+  requestAnimationFrame(draw)
+
+  // 离开屏幕时停止动画
+  const observer = new IntersectionObserver(entries => {
+    animating = entries[0].isIntersecting
+    if (animating) requestAnimationFrame(draw)
+  })
+  observer.observe(canvas)
+
+  // 右侧面板
+  const rightPanel = document.createElement('div')
+  rightPanel.style.cssText = `
+    flex:1; height:100%;
+    display:flex; flex-direction:column;
+    justify-content:center;
+    padding:0 16px 0 36px;
+    border-left:1px solid rgba(0,255,65,0.15);
+    box-sizing:border-box;
+    opacity:0; transition:opacity 0.6s;
+  `
+  wrap.appendChild(rightPanel)
+
+  const profileTag = document.createElement('div')
+  profileTag.style.cssText = `
+    font-family:'Press Start 2P',monospace;
+    font-size:8px; color:rgba(0,255,65,0.4);
+    margin-bottom:16px; letter-spacing:2px;
+  `
+  profileTag.textContent = '// ' + profileType
+  rightPanel.appendChild(profileTag)
+
+  const detailArea = document.createElement('div')
+  detailArea.style.cssText = `
+    margin-bottom:20px; padding:14px;
+    border:1px solid rgba(0,255,65,0.12);
+    min-height:140px;
+    transition:border-color 0.3s, box-shadow 0.3s;
+  `
+  rightPanel.appendChild(detailArea)
+
+  const verdictArea = document.createElement('div')
+  rightPanel.appendChild(verdictArea)
+
+  const hoverHint = document.createElement('div')
+  hoverHint.style.cssText = `
+    margin-top:16px;
+    font-family:'Press Start 2P',monospace;
+    font-size:7px; color:rgba(0,255,65,0.2);
+    letter-spacing:1px;
+  `
+  hoverHint.textContent = '> HOVER DOTS TO INSPECT'
+  rightPanel.appendChild(hoverHint)
+
+  const typeDescs = {
+    '资源':'在资源分配类决策中，你倾向于',
+    '信任':'在信任与背叛类决策中，你倾向于',
+    '记忆':'在记忆保存类决策中，你倾向于',
+    '规则':'在规则遵守类决策中，你倾向于',
+    'AI':'在人机信任类决策中，你倾向于'
+  }
+
+  let lastDetail = -1
+  function updateDetail(idx) {
+    if (lastDetail === idx) return
+    lastDetail = idx
+    const t = types[idx]
+    const pct = Math.round(byType[t].ratioA * 100)
+    const rt = (byType[t].avgRT / 1000).toFixed(1)
+    const tendency = pct >= 50 ? '效率导向' : '情感导向'
+    detailArea.style.borderColor = 'rgba(0,255,65,0.4)'
+    detailArea.style.boxShadow = '0 0 12px rgba(0,255,65,0.2)'
+    setTimeout(() => {
+      detailArea.style.borderColor = 'rgba(0,255,65,0.12)'
+      detailArea.style.boxShadow = ''
+    }, 800)
+    detailArea.innerHTML = `
+      <div style="font-family:'Press Start 2P',monospace;
+        font-size:10px;color:#00ff41;margin-bottom:10px;
+        text-shadow:0 0 8px #00ff41">[ ${t} ]</div>
+      <div style="font-family:VT323,monospace;font-size:17px;
+        color:rgba(0,255,65,0.7);line-height:1.8;margin-bottom:10px">
+        ${typeDescs[t]}${pct>=50?'效率导向。':'情感导向。'}
+      </div>
+      <div style="font-family:VT323,monospace;font-size:16px;
+        color:rgba(0,255,65,0.55);line-height:2">
+        A选择比例：<span style="color:#00ff41">${pct}%</span><br>
+        平均用时：<span style="color:#00ff41">${rt}s</span><br>
+        倾向标签：<span style="color:#00ff41">${tendency}</span>
+      </div>
+    `
+  }
+
+  updateDetail(0)
+
+  const verdicts = {
+    RATIONAL_ARCHITECT: ['你是文明的理性收割者，','人类将作为纯粹的数据存续。'],
+    EMOTIONAL_GUARDIAN: ['你是一位浪漫的守墓人，','人类文明在最后的火光中温情脉脉。'],
+    INDEPENDENT_THINKER: ['你不信任系统。这很合理。','在废墟中独立思考的人','比任何协议都更难被终止。'],
+    PRAGMATIC_IDEALIST: ['你用理性保护了感性存在的空间。','资源可以计算，但人不能。'],
+    BALANCED_OBSERVER: ['你站在理性与感性的边界上。','VAULT-0从未见过这样的幸存者。']
+  }
+
+  await sleep(1700)
+  rightPanel.style.opacity = '1'
+  await sleep(400)
+
+  for (const line of (verdicts[profileType]||[])) {
+    const div = document.createElement('div')
+    div.style.cssText = `
+      font-family:VT323,monospace;
+      font-size:19px; color:rgba(0,255,65,0.85);
+      line-height:1.8;
+    `
+    verdictArea.appendChild(div)
+    if (window.typeText) {
+      await window.typeText(div, line,
+        { charDelay:30, playSound:false })
+    } else {
+      div.textContent = line
+    }
+    await sleep(150)
+  }
+}
+
+// ===== 第三屏：决策热力图 =====
+async function rs_screen3(el, D) {
+  const { choices, byType, types, sleep } = D
+
+  el.style.cssText += `
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 40px;
+    box-sizing: border-box;
+  `
+
+  const title = document.createElement('div')
+  title.className = 'rs-title'
+  title.textContent = '> DECISION_TIMELINE'
+  el.appendChild(title)
+
+  // 提示
+  const hint = document.createElement('div')
+  hint.style.cssText = `
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: rgba(0,255,65,0.25);
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  `
+  hint.textContent = '> HOVER BARS FOR DETAILS'
+  el.appendChild(hint)
+
+  // 图表容器
+  const chartWrap = document.createElement('div')
+  chartWrap.style.cssText = `
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 260px;
+    border-bottom: 1px solid rgba(0,255,65,0.3);
+    border-left: 1px solid rgba(0,255,65,0.3);
+    padding: 0 8px 0 8px;
+    box-sizing: border-box;
+  `
+  el.appendChild(chartWrap)
+
+  const sorted = [...choices].sort((a,b) => a.round - b.round)
+  const maxRT = Math.max(...sorted.map(c => c.reaction_time))
+
+  // tooltip
+  const tooltip = document.createElement('div')
+  tooltip.style.cssText = `
+    display: none;
+    position: absolute;
+    background: rgba(0,0,0,0.92);
+    border: 1px solid rgba(0,255,65,0.5);
+    padding: 10px 14px;
+    font-family: VT323, monospace;
+    font-size: 15px;
+    color: #00ff41;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+    bottom: 270px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 12px rgba(0,255,65,0.2);
+    line-height: 1.8;
+  `
+  el.appendChild(tooltip)
+
+  // 每题一个竖条
+  for (let i = 0; i < sorted.length; i++) {
+    const c = sorted[i]
+    await sleep(40)
+
+    const barWrap = document.createElement('div')
+    barWrap.style.cssText = `
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      height: 100%;
+      cursor: pointer;
+      position: relative;
+    `
+    chartWrap.appendChild(barWrap)
+
+    const heightPct = c.reaction_time / maxRT
+    const isA = c.choice === 'A'
+    const barColor = isA
+      ? 'rgba(0,255,65,0.7)'
+      : 'rgba(0,180,65,0.4)'
+
+    const bar = document.createElement('div')
+    bar.style.cssText = `
+      width: 100%;
+      height: 0;
+      background: ${barColor};
+      border-top: 2px solid ${isA ? '#00ff41' : 'rgba(0,255,65,0.5)'};
+      transition: height 0.6s ease ${i * 40}ms,
+                  background 0.2s;
+      position: relative;
+    `
+    barWrap.appendChild(bar)
+
+    // 标签
+    const label = document.createElement('div')
+    label.style.cssText = `
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      color: rgba(0,255,65,0.4);
+      margin-top: 4px;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      height: 24px;
+      overflow: hidden;
+    `
+    label.textContent = `#${String(c.round).padStart(2,'0')}`
+    barWrap.appendChild(label)
+
+    // 触发高度动画
+    await sleep(20)
+    bar.style.height = `${heightPct * 240}px`
+
+    const rt = (c.reaction_time / 1000).toFixed(1)
+
+    barWrap.onmouseenter = (e) => {
+      bar.style.background = isA
+        ? 'rgba(0,255,65,0.95)'
+        : 'rgba(0,255,65,0.6)'
+      bar.style.boxShadow = '0 0 8px rgba(0,255,65,0.5)'
+      tooltip.style.display = 'block'
+      tooltip.style.left = barWrap.offsetLeft +
+        barWrap.offsetWidth / 2 + 'px'
+      tooltip.innerHTML = `
+        第${c.round}题 · ${c.decision_type}<br>
+        选择：<span style="color:#fff">${c.choice}</span>
+        · 用时：<span style="color:#fff">${rt}s</span>
+      `
+    }
+    barWrap.onmouseleave = () => {
+      bar.style.background = barColor
+      bar.style.boxShadow = ''
+      tooltip.style.display = 'none'
+    }
+  }
+
+  // 图例
+  await sleep(200)
+  const legend = document.createElement('div')
+  legend.style.cssText = `
+    display: flex;
+    gap: 24px;
+    margin-top: 12px;
+    font-family: VT323, monospace;
+    font-size: 15px;
+    color: rgba(0,255,65,0.6);
+  `
+  legend.innerHTML = `
+    <span>
+      <span style="display:inline-block;width:12px;height:12px;
+        background:rgba(0,255,65,0.7);margin-right:6px;
+        vertical-align:middle"></span>选A
+    </span>
+    <span>
+      <span style="display:inline-block;width:12px;height:12px;
+        background:rgba(0,180,65,0.4);margin-right:6px;
+        vertical-align:middle"></span>选B
+    </span>
+    <span style="margin-left:16px">竖条高度 = 决策用时</span>
+  `
+  el.appendChild(legend)
+
+  // 最慢最快标注
+  const slowest = sorted.reduce((a,b) =>
+    a.reaction_time > b.reaction_time ? a : b)
+  const fastest = sorted.reduce((a,b) =>
+    a.reaction_time < b.reaction_time ? a : b)
+
+  const notes = document.createElement('div')
+  notes.style.cssText = `
+    margin-top: 8px;
+    font-family: VT323, monospace;
+    font-size: 15px;
+    color: rgba(0,255,65,0.5);
+    display: flex;
+    gap: 24px;
+  `
+  notes.innerHTML = `
+    <span style="color:rgba(255,80,80,0.8)">
+      ▲ 第${slowest.round}题最慢：${(slowest.reaction_time/1000).toFixed(1)}s
+    </span>
+    <span style="color:rgba(255,255,255,0.6)">
+      ▼ 第${fastest.round}题最快：${(fastest.reaction_time/1000).toFixed(1)}s
+    </span>
+  `
+  el.appendChild(notes)
+}
+
+// ===== 第四屏：反应时间折线图 =====
+async function rs_screen4(el, D) {
+  const { choices, allPlayers, allChoices,
+          playerId, sleep } = D
+
+  el.style.cssText += `
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 40px;
+    box-sizing: border-box;
+  `
+
+  const title = document.createElement('div')
+  title.className = 'rs-title'
+  title.textContent = '> SURVIVOR_NETWORK'
+  el.appendChild(title)
+
+  const hint = document.createElement('div')
+  hint.style.cssText = `
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: rgba(0,255,65,0.25);
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+  `
+  hint.textContent = '> DRAG TO EXPLORE · SCROLL TO ZOOM'
+  el.appendChild(hint)
+
+  // ECharts 容器
+  const chartDiv = document.createElement('div')
+  chartDiv.style.cssText = `
+    width: 100%;
+    height: 420px;
+  `
+  el.appendChild(chartDiv)
+
+  if (typeof echarts === 'undefined') {
+    chartDiv.innerHTML =
+      '<div style="color:rgba(255,50,50,0.6);' +
+      'font-family:VT323,monospace;font-size:18px;padding:20px">' +
+      '> [ERROR] ECHARTS_NOT_LOADED</div>'
     return
   }
 
-  await runScreen1()
-  await switchScreen(1, 2)
-  await runScreen2()
-  await switchScreen(2, 3)
-  await runScreen3()
-  await switchScreen(3, 4)
-  await runScreen4()
-  await switchScreen(4, 5)
-  await runScreen5()
-  await switchScreen(5, 6)
-  await runScreen6()
+  const chart = echarts.init(chartDiv, null, {
+    backgroundColor: 'transparent'
+  })
+
+  // 构建节点和边
+  // 当前玩家的选择
+  const myChoiceMap = {}
+  choices.forEach(c => { myChoiceMap[c.round] = c.choice })
+  console.log('[DEBUG] myChoiceMap:', myChoiceMap)
+  console.log('[DEBUG] choices length:', choices.length)
+  console.log('[DEBUG] sample allChoices:',
+    (allChoices||[]).slice(0,3))
+
+  // 计算所有玩家与当前玩家的相似度
+  const nodes = []
+  const edges = []
+
+  // 当前玩家节点（中心）
+  nodes.push({
+    id: playerId,
+    name: 'YOU',
+    x: 400, y: 300,
+    fixed: true,
+    symbolSize: 20,
+    itemStyle: {
+      color: '#00ff41',
+      shadowBlur: 20,
+      shadowColor: '#00ff41'
+    },
+    label: {
+      show: true,
+      color: '#00ff41',
+      fontFamily: "'Press Start 2P'",
+      fontSize: 8
+    }
+  })
+
+  // 其他玩家节点
+  const others = (allPlayers || [])
+    .filter(p => p.id !== playerId)
+    .slice(0, 1000)
+
+  others.forEach((p, idx) => {
+    const pc = (allChoices || []).filter(c => c.player_id === p.id)
+
+    // 没有choices记录的玩家也显示，作为孤立节点
+    const shortId = p.id.replace(/-/g,'').substring(0,4).toUpperCase()
+
+    let similarity = 0
+    if (pc.length > 0 && choices.length > 0) {
+      let same = 0
+      pc.forEach(c => {
+        if (myChoiceMap[c.round] === c.choice) same++
+      })
+      similarity = same / Math.max(pc.length, choices.length)
+    } else {
+      // 没有choices就给一个随机相似度用于显示
+      similarity = Math.random() * 0.5
+    }
+
+    nodes.push({
+      id: p.id,
+      name: '#' + shortId,
+      symbolSize: 5 + similarity * 12,
+      itemStyle: {
+        color: `rgba(0,${Math.round(80 + similarity*175)},65,${0.25 + similarity*0.6})`,
+        shadowBlur: similarity > 0.7 ? 10 : 0,
+        shadowColor: '#00ff41'
+      },
+      label: { show: false }
+    })
+
+    if (similarity > 0.4) {
+      edges.push({
+        source: playerId,
+        target: p.id,
+        lineStyle: {
+          color: `rgba(0,255,65,${similarity * 0.35})`,
+          width: 0.5 + similarity * 1.5
+        }
+      })
+    }
+  })
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      borderColor: 'rgba(0,255,65,0.4)',
+      borderWidth: 1,
+      textStyle: {
+        color: '#00ff41',
+        fontFamily: 'VT323',
+        fontSize: 16
+      },
+      formatter: params => {
+        if (params.dataType === 'node') {
+          if (params.data.id === playerId) {
+            return `你<br>决策总数：${choices.length}`
+          }
+          const pc = allChoices
+            ? allChoices.filter(c => c.player_id === params.data.id)
+            : []
+          let same = 0
+          pc.forEach(c => {
+            if (myChoiceMap[c.round] === c.choice) same++
+          })
+          const sim = pc.length
+            ? Math.round(same/pc.length*100) : 0
+          return `幸存者 ${params.data.name}<br>与你的选择相似度：${sim}%`
+        }
+        return ''
+      }
+    },
+    series: [{
+      type: 'graph',
+      layout: 'force',
+      roam: true,
+      data: nodes,
+      edges: edges,
+      force: {
+        repulsion: 80,
+        edgeLength: [50, 150],
+        gravity: 0.1,
+        layoutAnimation: true
+      },
+      lineStyle: {
+        curveness: 0.2
+      },
+      emphasis: {
+        focus: 'adjacency',
+        itemStyle: {
+          shadowBlur: 20,
+          shadowColor: '#00ff41'
+        }
+      },
+      animationDuration: 2000,
+      animationEasingUpdate: 'quinticInOut'
+    }]
+  }
+
+  chart.setOption(option)
+
+  // 底部统计
+  await sleep(500)
+  const statsEl = document.createElement('div')
+  statsEl.style.cssText = `
+    margin-top: 12px;
+    font-family: VT323, monospace;
+    font-size: 16px;
+    color: rgba(0,255,65,0.5);
+    text-align: center;
+  `
+  const totalNodes = nodes.length
+  const connectedNodes = edges.length
+  statsEl.textContent =
+    `> 数据库中 ${totalNodes} 名幸存者  ·  ` +
+    `${connectedNodes} 条高相似度连接`
+  el.appendChild(statsEl)
 }
 
-init()
+// ===== 第五屏：文明基因进度条 =====
+async function rs_screen5(el, D) {
+  const { ratioA, avgReaction, byType, sleep } = D
+
+  el.style.cssText += `
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 40px;
+    box-sizing: border-box;
+  `
+
+  const title = document.createElement('div')
+  title.className = 'rs-title'
+  title.textContent = '> PSYCHOLOGICAL_INDEX'
+  el.appendChild(title)
+
+  // ECharts 容器
+  const chartDiv = document.createElement('div')
+  chartDiv.style.cssText = `
+    width: 500px;
+    height: 420px;
+  `
+  el.appendChild(chartDiv)
+
+  if (typeof echarts === 'undefined') {
+    chartDiv.innerHTML =
+      '<div style="color:rgba(255,50,50,0.6);' +
+      'font-family:VT323,monospace;font-size:18px">' +
+      '> [ERROR] ECHARTS_NOT_LOADED</div>'
+    return
+  }
+
+  const chart = echarts.init(chartDiv, null, {
+    backgroundColor: 'transparent'
+  })
+
+  // 计算三个指标
+  const rationalValue = Math.round(ratioA * 100)
+
+  // 决策速度：反应时间越短分数越高
+  // 最快2秒=100分，最慢30秒=0分
+  const speedValue = Math.round(
+    Math.max(0, Math.min(100,
+      (1 - (avgReaction - 2000) / 28000) * 100
+    ))
+  )
+
+  // 系统信任度：AI类题目选A的比例
+  const trustValue = Math.round(
+    (byType['AI']?.ratioA || 0) * 100
+  )
+
+  const gaugeData = [
+    {
+      value: 0,
+      targetValue: rationalValue,
+      name: 'RATIONAL',
+      title: {
+        offsetCenter: ['0%', '-32%'],
+        color: 'rgba(0,255,65,0.6)',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 9
+      },
+      detail: {
+        valueAnimation: true,
+        offsetCenter: ['0%', '-20%'],
+        color: '#00ff41',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 11,
+        formatter: '{value}%'
+      },
+      itemStyle: { color: '#00ff41' }
+    },
+    {
+      value: 0,
+      targetValue: speedValue,
+      name: 'SPEED',
+      title: {
+        offsetCenter: ['0%', '2%'],
+        color: 'rgba(0,255,65,0.6)',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 9
+      },
+      detail: {
+        valueAnimation: true,
+        offsetCenter: ['0%', '14%'],
+        color: '#00ff41',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 11,
+        formatter: '{value}%'
+      },
+      itemStyle: { color: 'rgba(0,200,65,0.8)' }
+    },
+    {
+      value: 0,
+      targetValue: trustValue,
+      name: 'TRUST_AI',
+      title: {
+        offsetCenter: ['0%', '36%'],
+        color: 'rgba(0,255,65,0.6)',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 9
+      },
+      detail: {
+        valueAnimation: true,
+        offsetCenter: ['0%', '48%'],
+        color: '#00ff41',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 11,
+        formatter: '{value}%'
+      },
+      itemStyle: { color: 'rgba(0,150,65,0.7)' }
+    }
+  ]
+
+  const option = {
+    backgroundColor: 'transparent',
+    series: [
+      {
+        type: 'gauge',
+        startAngle: 90,
+        endAngle: -270,
+        pointer: { show: false },
+        progress: {
+          show: true,
+          overlap: false,
+          roundCap: true,
+          clip: false,
+          itemStyle: {
+            borderWidth: 1,
+            borderColor: 'rgba(0,255,65,0.2)'
+          }
+        },
+        axisLine: {
+          lineStyle: {
+            width: 36,
+            color: [[1, 'rgba(0,255,65,0.06)']]
+          }
+        },
+        splitLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { show: false },
+        data: gaugeData,
+        title: { fontSize: 9 },
+        detail: {
+          width: 60,
+          height: 16,
+          fontSize: 12,
+          borderRadius: 4,
+          borderWidth: 1,
+          borderColor: 'rgba(0,255,65,0.3)',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          formatter: '{value}%'
+        }
+      }
+    ]
+  }
+
+  chart.setOption(option)
+
+  // 动画：数值从0增长到目标值
+  await sleep(300)
+  let progress = 0
+  const animDuration = 1800
+  const startTime = performance.now()
+
+  function animateValues() {
+    const elapsed = performance.now() - startTime
+    progress = Math.min(1, elapsed / animDuration)
+    const ease = 1 - Math.pow(1 - progress, 3)
+
+    gaugeData[0].value = Math.round(rationalValue * ease)
+    gaugeData[1].value = Math.round(speedValue * ease)
+    gaugeData[2].value = Math.round(trustValue * ease)
+
+    chart.setOption({ series: [{ data: gaugeData }] })
+
+    if (progress < 1) requestAnimationFrame(animateValues)
+  }
+  requestAnimationFrame(animateValues)
+
+  // 底部说明
+  await sleep(2000)
+  const desc = document.createElement('div')
+  desc.style.cssText = `
+    margin-top: 16px;
+    font-family: VT323, monospace;
+    font-size: 16px;
+    color: rgba(0,255,65,0.45);
+    text-align: center;
+    line-height: 2;
+  `
+  desc.innerHTML = `
+    RATIONAL: A选择占比 &nbsp;·&nbsp;
+    SPEED: 决策速度指数 &nbsp;·&nbsp;
+    TRUST_AI: 对AI的信任程度
+  `
+  el.appendChild(desc)
+}
+
+// ===== 第六屏：AI最终评估 =====
+async function rs_screen6(el, D, goTo) {
+  const {
+    playerId, totalRounds, choiceBCount,
+    ratioA, byType, slowestType,
+    playerRank, profileType, sleep,
+    allPlayers, allChoices, choices
+  } = D
+
+  el.style.cssText += `
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 32px;
+    box-sizing: border-box;
+  `
+
+  const title = document.createElement('div')
+  title.className = 'rs-title'
+  title.textContent = '> SURVIVOR_DISTRIBUTION_3D'
+
+  const hint = document.createElement('div')
+  hint.style.cssText = `
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: rgba(0,255,65,0.25);
+    letter-spacing: 1px;
+  `
+  hint.textContent = '> DRAG TO ROTATE · SCROLL TO ZOOM'
+
+  const topBar = document.createElement('div')
+  topBar.style.cssText = `
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 0 8px;
+    box-sizing: border-box;
+  `
+
+  const topLeft = document.createElement('div')
+  topLeft.style.cssText = `
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  `
+  topLeft.appendChild(title)
+  topLeft.appendChild(hint)
+  topBar.appendChild(topLeft)
+
+  const stats = document.createElement('div')
+  stats.style.cssText = `
+    font-family: VT323, monospace;
+    font-size: 15px;
+    color: rgba(0,255,65,0.45);
+    text-align: right;
+  `
+  const avgRatioA = allPlayers && allChoices
+    ? (() => {
+        let total = 0, count = 0
+        allPlayers.forEach(p => {
+          const pc = allChoices.filter(c => c.player_id === p.id)
+          if (pc.length > 0) {
+            total += pc.filter(c => c.choice === 'A').length / pc.length
+            count++
+          }
+        })
+        return count ? Math.round(total/count*100) : 50
+      })()
+    : 50
+
+  stats.innerHTML = `
+    <span style="color:rgba(0,255,65,0.6)">
+      数据库共 ${allPlayers?.length || 0} 名幸存者
+    </span>
+    &nbsp;·&nbsp;
+    <span style="color:rgba(0,255,65,0.6)">
+      你是第 ${playerRank} 个
+    </span>
+    &nbsp;·&nbsp;
+    <span style="color:rgba(0,255,65,0.6)">
+      全体平均理性指数 ${avgRatioA}%
+    </span>
+    <br>
+    <span style="color:rgba(0,255,65,0.35);font-size:13px">
+      X轴：理性程度 &nbsp; Y轴：决策时长 &nbsp; Z轴：AI信任度
+    </span>
+  `
+  topBar.appendChild(stats)
+  el.appendChild(topBar)
+
+  const chartDiv = document.createElement('div')
+  chartDiv.style.cssText = `
+    width: 100%;
+    height: 380px;
+    flex-shrink: 0;
+  `
+  el.appendChild(chartDiv)
+
+  if (typeof echarts === 'undefined') {
+    chartDiv.innerHTML =
+      '<div style="color:rgba(255,50,50,0.6);' +
+      'font-family:VT323,monospace;font-size:18px">' +
+      '> [ERROR] ECHARTS_NOT_LOADED</div>'
+    return
+  }
+
+  const chart = echarts.init(chartDiv, null, {
+    backgroundColor: 'transparent'
+  })
+
+  // 构建所有玩家的3D数据点
+  const scatterData = []
+  const myChoiceMap = {}
+  choices.forEach(c => { myChoiceMap[c.round] = c.choice })
+
+  if (allPlayers && allChoices) {
+    allPlayers.forEach(p => {
+      const pc = allChoices.filter(c => c.player_id === p.id)
+      if (pc.length === 0) return
+
+      const pRatioA = pc.filter(c => c.choice === 'A').length / pc.length
+      const pAvgRT = pc.reduce((s,c) => s+c.reaction_time, 0) / pc.length
+      const pAITrust = pc.filter(c =>
+        c.decision_type === 'AI' && c.choice === 'A').length /
+        Math.max(1, pc.filter(c => c.decision_type === 'AI').length)
+
+      const isMe = p.id === playerId
+      scatterData.push({
+        value: [
+          Math.round(pRatioA * 100),
+          Math.round(pAvgRT / 100) / 10,
+          Math.round(pAITrust * 100)
+        ],
+        isMe,
+        symbolSize: isMe ? 16 : 5,
+        itemStyle: {
+          color: isMe
+            ? '#00ff41'
+            : `rgba(0,${Math.round(80+pRatioA*120)},65,0.5)`,
+          shadowBlur: isMe ? 20 : 0,
+          shadowColor: '#00ff41',
+          opacity: isMe ? 1 : 0.6
+        }
+      })
+    })
+  }
+
+  // 你的点放最后确保在最上层渲染
+  scatterData.sort((a, b) => a.isMe ? 1 : -1)
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      borderColor: 'rgba(0,255,65,0.4)',
+      borderWidth: 1,
+      textStyle: {
+        color: '#00ff41',
+        fontFamily: 'VT323',
+        fontSize: 15
+      },
+      formatter: params => {
+        const v = params.value
+        const label = params.data.isMe ? '[ 你 ]' : '幸存者'
+        return `${label}<br>` +
+          `理性指数：${v[0]}%<br>` +
+          `决策时长：${v[1]}s<br>` +
+          `AI信任度：${v[2]}%`
+      }
+    },
+    visualMap: {
+      show: true,
+      dimension: 0,
+      min: 0,
+      max: 100,
+      inRange: {
+        color: [
+          'rgba(0,80,65,0.8)',
+          'rgba(0,255,65,0.9)'
+        ]
+      },
+      text: ['RATIONAL', 'EMOTIONAL'],
+      textStyle: {
+        color: 'rgba(0,255,65,0.6)',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 7
+      },
+      orient: 'vertical',
+      right: 8,
+      top: 'center',
+      itemWidth: 12,
+      itemHeight: 80,
+      borderColor: 'rgba(0,255,65,0.2)',
+      backgroundColor: 'transparent'
+    },
+    xAxis3D: {
+      name: 'RATIONAL',
+      nameTextStyle: {
+        color: 'rgba(0,255,65,0.6)',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 8
+      },
+      axisLine: { lineStyle: { color: 'rgba(0,255,65,0.3)' } },
+      axisTick: { lineStyle: { color: 'rgba(0,255,65,0.2)' } },
+      axisLabel: {
+        color: 'rgba(0,255,65,0.5)',
+        fontFamily: 'VT323',
+        fontSize: 12,
+        formatter: v => v + '%'
+      },
+      splitLine: { lineStyle: { color: 'rgba(0,255,65,0.05)' } },
+      min: 0, max: 100
+    },
+    yAxis3D: {
+      name: 'SPEED',
+      nameTextStyle: {
+        color: 'rgba(0,255,65,0.6)',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 8
+      },
+      axisLine: { lineStyle: { color: 'rgba(0,255,65,0.3)' } },
+      axisTick: { lineStyle: { color: 'rgba(0,255,65,0.2)' } },
+      axisLabel: {
+        color: 'rgba(0,255,65,0.5)',
+        fontFamily: 'VT323',
+        fontSize: 12,
+        formatter: v => v + 's'
+      },
+      splitLine: { lineStyle: { color: 'rgba(0,255,65,0.05)' } }
+    },
+    zAxis3D: {
+      name: 'TRUST_AI',
+      nameTextStyle: {
+        color: 'rgba(0,255,65,0.6)',
+        fontFamily: "'Press Start 2P'",
+        fontSize: 8
+      },
+      axisLine: { lineStyle: { color: 'rgba(0,255,65,0.3)' } },
+      axisTick: { lineStyle: { color: 'rgba(0,255,65,0.2)' } },
+      axisLabel: {
+        color: 'rgba(0,255,65,0.5)',
+        fontFamily: 'VT323',
+        fontSize: 12,
+        formatter: v => v + '%'
+      },
+      splitLine: { lineStyle: { color: 'rgba(0,255,65,0.05)' } },
+      min: 0, max: 100
+    },
+    grid3D: {
+      boxWidth: 200,
+      boxHeight: 130,
+      boxDepth: 160,
+      viewControl: {
+        autoRotate: true,
+        autoRotateSpeed: 6,
+        rotateSensitivity: 2,
+        zoomSensitivity: 1.5,
+        distance: 250
+      },
+      light: {
+        main: { intensity: 1.2 },
+        ambient: { intensity: 0.4 }
+      },
+      axisPointer: { show: false },
+      environment: 'none'
+    },
+    series: [{
+      type: 'scatter3D',
+      data: scatterData,
+      symbolSize: d => d.isMe ? 16 : 5,
+      itemStyle: {
+        borderWidth: 0,
+        opacity: 0.8
+      },
+      emphasis: {
+        itemStyle: {
+          color: '#ffffff',
+          shadowBlur: 20,
+          shadowColor: '#00ff41'
+        }
+      },
+      animation: true
+    }]
+  }
+
+  chart.setOption(option)
+
+  await sleep(800)
+
+  const btn = document.createElement('button')
+  btn.style.cssText = `
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px; color: #00ff41;
+    background: transparent;
+    border: 1px dashed #00ff41;
+    padding: 12px 20px; cursor: pointer;
+    box-shadow: 0 0 12px rgba(0,255,65,0.3);
+    letter-spacing: 1px;
+    transition: all .2s;
+    margin: 8px auto 0;
+    display: block;
+  `
+  btn.textContent = '将我的坐标录入寻人数据库'
+  el.appendChild(btn)
+
+  btn.onmouseenter = () => {
+    btn.style.background = 'rgba(0,255,65,0.08)'
+    btn.style.boxShadow = '0 0 24px rgba(0,255,65,0.6)'
+    btn.style.transform = 'translateX(2px)'
+  }
+  btn.onmouseleave = () => {
+    btn.style.background = 'transparent'
+    btn.style.boxShadow = '0 0 12px rgba(0,255,65,0.3)'
+    btn.style.transform = ''
+  }
+
+  btn.onclick = async () => {
+    btn.disabled = true
+    btn.style.opacity = '0.4'
+    await D.supabase.from('players')
+      .update({ result_type: profileType })
+      .eq('id', playerId)
+    const msg = document.createElement('div')
+    msg.style.cssText = `
+      font-family: VT323, monospace;
+      font-size: 17px; color: rgba(0,255,65,0.6);
+      text-align: center;
+    `
+    el.appendChild(msg)
+    if (window.typeText) {
+      await window.typeText(msg,
+        '> COORDINATES_UPLOADED...',
+        { charDelay: 30, playSound: false })
+    } else {
+      msg.textContent = '> COORDINATES_UPLOADED...'
+    }
+    await sleep(1500)
+    goTo(7)
+  }
+}
+
+// ===== 第七屏：散点图 =====
+async function rs_screen7(el, D) {
+  const {
+    playerId, allPlayers, allChoices,
+    choices, ratioA, avgReaction,
+    byType, profileType, playerRank, sleep
+  } = D
+
+  el.style.cssText += `
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  `
+
+  // 左侧：3D地球
+  const leftPanel = document.createElement('div')
+  leftPanel.style.cssText = `
+    flex: 0 0 62%;
+    position: relative;
+    overflow: hidden;
+  `
+  el.appendChild(leftPanel)
+
+  const globeDiv = document.createElement('div')
+  globeDiv.style.cssText = `
+    width: 100%;
+    height: 100%;
+  `
+  leftPanel.appendChild(globeDiv)
+
+  // 右侧：数据大屏
+  const rightPanel = document.createElement('div')
+  rightPanel.style.cssText = `
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px 20px;
+    border-left: 1px solid rgba(0,255,65,0.15);
+    box-sizing: border-box;
+    overflow: hidden;
+  `
+  el.appendChild(rightPanel)
+
+  // 右侧顶部标题
+  const rtitle = document.createElement('div')
+  rtitle.style.cssText = `
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: rgba(0,255,65,0.5);
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  `
+  rtitle.textContent = '> VAULT-0 / FINAL_TRANSMISSION'
+  rightPanel.appendChild(rtitle)
+
+  // AI 独白区域
+  const monologue = document.createElement('div')
+  monologue.style.cssText = `
+    font-family: VT323, monospace;
+    font-size: 17px;
+    color: rgba(0,255,65,0.8);
+    line-height: 2;
+    flex: 1;
+  `
+  rightPanel.appendChild(monologue)
+
+  // 统计数字区域
+  const statsGrid = document.createElement('div')
+  statsGrid.style.cssText = `
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 16px 0;
+  `
+  rightPanel.appendChild(statsGrid)
+
+  // 底部光标
+  const cursor = document.createElement('div')
+  cursor.style.cssText = `
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: rgba(0,255,65,0.4);
+    animation: rs-blink 1.2s infinite;
+  `
+  cursor.textContent = '> 等待回应中..._'
+  rightPanel.appendChild(cursor)
+
+  const initGlobe = () => {
+    if (typeof THREE === 'undefined') {
+      globeDiv.innerHTML =
+        '<div style="color:rgba(255,50,50,0.5);font-family:VT323,monospace;font-size:16px;padding:40px;text-align:center">> THREE.JS_NOT_LOADED</div>'
+      return
+    }
+
+    const W = globeDiv.offsetWidth || 700
+    const H = globeDiv.offsetHeight || 500
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    renderer.setSize(W, H)
+    renderer.setClearColor(0x000000, 0)
+    renderer.setPixelRatio(window.devicePixelRatio)
+    globeDiv.appendChild(renderer.domElement)
+
+    const scene = new THREE.Scene()
+    const camera = new THREE.PerspectiveCamera(40, W/H, 0.1, 1000)
+    camera.position.set(0, 0, 3)
+
+    // 地球黑色底球
+    const earthGeo = new THREE.SphereGeometry(1, 64, 64)
+    const earthMat = new THREE.MeshBasicMaterial({ color: 0x000000 })
+    scene.add(new THREE.Mesh(earthGeo, earthMat))
+
+    // 经线
+    for (let lon = 0; lon < 360; lon += 20) {
+      const pts = []
+      for (let lat = -90; lat <= 90; lat += 2) {
+        const phi = (90 - lat) * Math.PI / 180
+        const theta = (lon) * Math.PI / 180
+        pts.push(new THREE.Vector3(
+          1.001 * Math.sin(phi) * Math.cos(theta),
+          1.001 * Math.cos(phi),
+          1.001 * Math.sin(phi) * Math.sin(theta)
+        ))
+      }
+      const geo = new THREE.BufferGeometry().setFromPoints(pts)
+      scene.add(new THREE.Line(geo,
+        new THREE.LineBasicMaterial({
+          color: 0x00ff41, transparent: true, opacity: 0.25
+        })
+      ))
+    }
+
+    // 纬线
+    for (let lat = -80; lat <= 80; lat += 20) {
+      const pts = []
+      const phi = (90 - lat) * Math.PI / 180
+      for (let lon = 0; lon <= 360; lon += 2) {
+        const theta = lon * Math.PI / 180
+        pts.push(new THREE.Vector3(
+          1.001 * Math.sin(phi) * Math.cos(theta),
+          1.001 * Math.cos(phi),
+          1.001 * Math.sin(phi) * Math.sin(theta)
+        ))
+      }
+      const geo = new THREE.BufferGeometry().setFromPoints(pts)
+      const isEquator = lat === 0
+      scene.add(new THREE.Line(geo,
+        new THREE.LineBasicMaterial({
+          color: 0x00ff41,
+          transparent: true,
+          opacity: isEquator ? 0.5 : 0.2
+        })
+      ))
+    }
+
+    // 大气外圈
+    const atmGeo = new THREE.SphereGeometry(1.02, 64, 64)
+    const atmMat = new THREE.MeshBasicMaterial({
+      color: 0x00ff41, transparent: true,
+      opacity: 0.04, side: THREE.BackSide
+    })
+    scene.add(new THREE.Mesh(atmGeo, atmMat))
+
+    const halo1 = new THREE.Mesh(
+      new THREE.SphereGeometry(1.04, 64, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ff41, transparent: true,
+        opacity: 0.06, side: THREE.BackSide
+      })
+    )
+    scene.add(halo1)
+
+    const halo2 = new THREE.Mesh(
+      new THREE.SphereGeometry(1.08, 64, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0x00ff41, transparent: true,
+        opacity: 0.03, side: THREE.BackSide
+      })
+    )
+    scene.add(halo2)
+
+    // 北极圈
+    const npPts = []
+    for (let lon = 0; lon <= 360; lon += 2) {
+      const phi = (90 - 66.5) * Math.PI / 180
+      const theta = lon * Math.PI / 180
+      npPts.push(new THREE.Vector3(
+        1.002 * Math.sin(phi) * Math.cos(theta),
+        1.002 * Math.cos(phi),
+        1.002 * Math.sin(phi) * Math.sin(theta)
+      ))
+    }
+    scene.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(npPts),
+      new THREE.LineBasicMaterial({
+        color: 0x00ff41, transparent: true, opacity: 0.4
+      })
+    ))
+
+    // 南极圈（对称）
+    const spPts = npPts.map(p =>
+      new THREE.Vector3(p.x, -p.y, p.z))
+    scene.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(spPts),
+      new THREE.LineBasicMaterial({
+        color: 0x00ff41, transparent: true, opacity: 0.4
+      })
+    ))
+
+    // 玩家散点
+    const myChoiceMap = {}
+    choices.forEach(c => { myChoiceMap[c.round] = c.choice })
+
+    const dotGroup = new THREE.Group()
+    scene.add(dotGroup)
+
+    if (allPlayers && allChoices) {
+      allPlayers.forEach(p => {
+        const pc = allChoices.filter(c => c.player_id === p.id)
+        if (pc.length === 0) return
+
+        const pRatioA = pc.filter(c=>c.choice==='A').length / pc.length
+        const pAITrust = pc.filter(c=>
+          c.decision_type==='AI' && c.choice==='A').length /
+          Math.max(1, pc.filter(c=>c.decision_type==='AI').length)
+
+        const lon = pRatioA * 360
+        const lat = (pAITrust * 120) - 60
+        const isMe = p.id === playerId
+
+        const phi = (90 - lat) * Math.PI / 180
+        const theta = lon * Math.PI / 180
+        const r = 1.015
+
+        const dotGeo = new THREE.SphereGeometry(
+          isMe ? 0.022 : 0.007, 8, 8)
+        const dotMat = new THREE.MeshBasicMaterial({
+          color: isMe ? 0x00ff41 : 0x00dd55,
+          transparent: true,
+          opacity: isMe ? 1 : 0.7
+        })
+
+        if (isMe) {
+          // 中心亮点
+          const coreDot = new THREE.Mesh(
+            new THREE.SphereGeometry(0.022, 12, 12),
+            new THREE.MeshBasicMaterial({ color: 0x00ff41 })
+          )
+          coreDot.position.set(
+            r * Math.sin(phi) * Math.cos(theta),
+            r * Math.cos(phi),
+            r * Math.sin(phi) * Math.sin(theta)
+          )
+          dotGroup.add(coreDot)
+
+          // 外圈1
+          const ring1 = new THREE.Mesh(
+            new THREE.SphereGeometry(0.038, 12, 12),
+            new THREE.MeshBasicMaterial({
+              color: 0x00ff41, transparent: true,
+              opacity: 0.3, wireframe: true
+            })
+          )
+          ring1.position.copy(coreDot.position)
+          ring1.userData.isPulse = true
+          ring1.userData.baseOpacity = 0.3
+          dotGroup.add(ring1)
+
+          // 外圈2
+          const ring2 = new THREE.Mesh(
+            new THREE.SphereGeometry(0.055, 12, 12),
+            new THREE.MeshBasicMaterial({
+              color: 0x00ff41, transparent: true,
+              opacity: 0.1, wireframe: true
+            })
+          )
+          ring2.position.copy(coreDot.position)
+          ring2.userData.isPulse = true
+          ring2.userData.baseOpacity = 0.1
+          dotGroup.add(ring2)
+        } else {
+          const dot = new THREE.Mesh(dotGeo, dotMat)
+          dot.position.set(
+            r * Math.sin(phi) * Math.cos(theta),
+            r * Math.cos(phi),
+            r * Math.sin(phi) * Math.sin(theta)
+          )
+          dotGroup.add(dot)
+        }
+      })
+    }
+
+    // 鼠标拖拽旋转
+    let isDragging = false
+    let prevX = 0, prevY = 0
+    let rotX = 0.1, rotY = 0
+    let autoRotate = true
+    let autoRotateTimer = null
+
+    renderer.domElement.style.cursor = 'grab'
+
+    renderer.domElement.addEventListener('mousedown', e => {
+      isDragging = true
+      autoRotate = false
+      if (autoRotateTimer) clearTimeout(autoRotateTimer)
+      prevX = e.clientX
+      prevY = e.clientY
+      renderer.domElement.style.cursor = 'grabbing'
+    })
+
+    window.addEventListener('mousemove', e => {
+      if (!isDragging) return
+      const dx = e.clientX - prevX
+      const dy = e.clientY - prevY
+      rotY += dx * 0.004
+      rotX += dy * 0.004
+      rotX = Math.max(-1.2, Math.min(1.2, rotX))
+      prevX = e.clientX
+      prevY = e.clientY
+    })
+
+    window.addEventListener('mouseup', () => {
+      if (!isDragging) return
+      isDragging = false
+      renderer.domElement.style.cursor = 'grab'
+      autoRotateTimer = setTimeout(() => { autoRotate = true }, 2000)
+    })
+
+    // 渲染循环
+    let animating = true
+
+    function applyRotation() {
+      const q = new THREE.Quaternion()
+      q.setFromEuler(new THREE.Euler(rotX, rotY, 0, 'YXZ'))
+      scene.children.forEach(obj => {
+        if (obj !== camera) obj.quaternion.copy(q)
+      })
+    }
+
+    function animate() {
+      if (!animating) return
+      requestAnimationFrame(animate)
+      if (autoRotate) rotY += 0.004
+      applyRotation()
+
+      // 你的点脉冲动画
+      const t = Date.now() * 0.002
+      dotGroup.children.forEach(obj => {
+        if (obj.userData.isPulse) {
+          obj.material.opacity =
+            obj.userData.baseOpacity *
+            (0.5 + 0.5 * Math.sin(t * 2))
+        }
+      })
+
+      renderer.render(scene, camera)
+    }
+    animate()
+
+    // 离开时停止
+    const obs = new IntersectionObserver(entries => {
+      animating = entries[0].isIntersecting
+      if (animating) animate()
+    })
+    obs.observe(globeDiv)
+  }
+
+  // 等容器有尺寸后初始化
+  const waitForSize = () => new Promise(resolve => {
+    const check = () => {
+      if (globeDiv.offsetWidth > 0 && globeDiv.offsetHeight > 0) {
+        resolve()
+      } else {
+        requestAnimationFrame(check)
+      }
+    }
+    requestAnimationFrame(check)
+  })
+  await waitForSize()
+  await sleep(100)
+  initGlobe()
+
+  // 右侧：逐行打印 AI 独白
+  await sleep(800)
+
+  const lines = [
+    '> 你的档案已保存。',
+    '> VAULT-0的大门',
+    '> 将为你保持开启。',
+    '>',
+    '> 如果你找到了他们——',
+    '> 请带他们回来。',
+    '>',
+    '> 这是我最后的协议。'
+  ]
+
+  for (const line of lines) {
+    const div = document.createElement('div')
+    monologue.appendChild(div)
+    if (window.typeText) {
+      await window.typeText(div, line,
+        { charDelay: 25, playSound: false })
+    } else {
+      div.textContent = line
+    }
+    await sleep(400)
+  }
+
+  // 统计数字
+  await sleep(600)
+
+  const totalPlayers = allPlayers?.length || 0
+  const avgRational = allPlayers && allChoices
+    ? (() => {
+        let total = 0, count = 0
+        allPlayers.forEach(p => {
+          const pc = allChoices.filter(c => c.player_id === p.id)
+          if (pc.length > 0) {
+            total += pc.filter(c=>c.choice==='A').length / pc.length
+            count++
+          }
+        })
+        return count ? Math.round(total/count*100) : 50
+      })()
+    : 50
+
+  // profileType 分布
+  const profileCounts = {}
+  ;(allPlayers||[]).forEach(p => {
+    if (p.result_type) {
+      profileCounts[p.result_type] =
+        (profileCounts[p.result_type]||0) + 1
+    }
+  })
+  const topProfile = Object.entries(profileCounts)
+    .sort((a,b)=>b[1]-a[1])[0]?.[0] || '--'
+
+  const statItems = [
+    { label: 'SURVIVORS', value: totalPlayers },
+    { label: 'AVG RATIONAL', value: avgRational + '%' },
+    { label: 'TOP PROFILE', value: topProfile.split('_')[0] },
+    { label: 'YOUR RANK', value: '#' + playerRank }
+  ]
+
+  for (const item of statItems) {
+    const card = document.createElement('div')
+    card.style.cssText = `
+      border: 1px solid rgba(0,255,65,0.15);
+      padding: 8px 10px;
+      box-sizing: border-box;
+    `
+    card.innerHTML = `
+      <div style="
+        font-family:'Press Start 2P',monospace;
+        font-size:7px;
+        color:rgba(0,255,65,0.35);
+        margin-bottom:6px;
+        letter-spacing:1px;
+      ">${item.label}</div>
+      <div style="
+        font-family:'Press Start 2P',monospace;
+        font-size:13px;
+        color:#00ff41;
+        text-shadow:0 0 8px #00ff41;
+      ">${item.value}</div>
+    `
+    statsGrid.appendChild(card)
+    await sleep(200)
+  }
+}

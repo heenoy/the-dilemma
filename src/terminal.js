@@ -208,6 +208,8 @@ export async function typeText(element, text, options = {}) {
   }
 }
 
+window.typeText = typeText
+
 export function createLine(withPrompt = false, parent = null) {
   const wrapper = document.createElement('div')
   wrapper.className = 'terminal-line-layer'
