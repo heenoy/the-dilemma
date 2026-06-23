@@ -361,7 +361,7 @@ async function rs_screen2(el, D) {
 
   const titleL = document.createElement('div')
   titleL.className = 'rs-title'
-  titleL.textContent = '> PSYCHOLOGICAL_RADAR'
+  titleL.textContent = '> 心理雷达图'
   leftPanel.appendChild(titleL)
 
   // Canvas 雷达扫描仪
@@ -754,7 +754,7 @@ async function rs_screen3(el, D) {
 
   const title = document.createElement('div')
   title.className = 'rs-title'
-  title.textContent = '> DECISION_TIMELINE'
+  title.textContent = '> 决策时间线'
   el.appendChild(title)
 
   // 提示
@@ -955,7 +955,7 @@ async function rs_screen4(el, D) {
 
   const title = document.createElement('div')
   title.className = 'rs-title'
-  title.textContent = '> SURVIVOR_NETWORK'
+  title.textContent = '> 幸存者网络'
   el.appendChild(title)
 
   const hint = document.createElement('div')
@@ -1162,7 +1162,7 @@ async function rs_screen5(el, D) {
 
   const title = document.createElement('div')
   title.className = 'rs-title'
-  title.textContent = '> PSYCHOLOGICAL_INDEX'
+  title.textContent = '> 心理指数'
   el.appendChild(title)
 
   // ECharts 容器
@@ -1364,7 +1364,7 @@ async function rs_screen6(el, D, goTo) {
   el.style.boxSizing = 'border-box'
 
   const title = document.createElement('div')
-  title.textContent = '> SURVIVOR_DISTRIBUTION_3D'
+  title.textContent = '> 幸存者三维分布'
   title.style.cssText = `
     position: absolute;
     top: 12px;
