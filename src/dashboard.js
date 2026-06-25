@@ -1,5 +1,5 @@
 // ========================================
-// 末日抉择 · 幸存者数据可视化大屏
+// 末日抉择 · 幸存者数据总览
 // 文件：src/dashboard.js
 // 说明：本文件包含数据可视化大屏的完整实现
 // 依赖：ECharts, ECharts-GL, Three.js, Chart.js
@@ -60,7 +60,7 @@ async function rs_screen8(el, D) {
       font-size:9px; color:#00ff41;
       text-shadow:0 0 8px #00ff41;
       letter-spacing:2px;
-    ">末日录屏 · 幸存者数据总览</div>
+    ">末日抉择 · 幸存者数据总览</div>
     <div style="
       position:absolute; right:12px;
       font-family:'Press Start 2P',monospace;
