@@ -8,6 +8,13 @@ let blinkRaf = null
 let initialized = false
 
 function isInteractiveTarget(target) {
+  if (
+    document.querySelector(
+      '.scroll-line--input .terminal-input:not([data-resolved])'
+    )
+  ) {
+    return true
+  }
   return Boolean(
     target.closest(
       'button, input, textarea, select, a, .scroll-line--choice, .scroll-line--option, .scroll-line--input, .wake-init-btn, .choice-btn, .wake-overlay'

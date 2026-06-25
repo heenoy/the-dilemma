@@ -339,6 +339,8 @@ async function promptField(label, validate) {
   input.autocomplete = 'off'
   input.spellcheck = false
   row.appendChild(input)
+  suppressClickAdvance()
+  input.focus()
 
   await typeText(line, label)
   line.appendChild(valueEl)
@@ -352,11 +354,39 @@ async function promptField(label, validate) {
 function waitForInput(validate) {
   return new Promise((resolve) => {
     const input = document.querySelector('.scroll-line--input .terminal-input:not([data-resolved])')
-    if (!input) return
+    if (!input) {
+      resolve('')
+      return
+    }
+
+    suppressClickAdvance()
 
     const row = input.closest('.scroll-line')
     const valueEl = row?.querySelector('.input-value')
     const cursorEl = row?.querySelector('.input-cursor')
+
+    const cleanup = () => {
+      input.removeEventListener('keydown', onKeyDown)
+      input.removeEventListener('input', onInput)
+      input.removeEventListener('blur', onBlur)
+      row?.removeEventListener('click', onRowClick)
+    }
+
+    const refocus = () => {
+      if (input.dataset.resolved === 'true') return
+      requestAnimationFrame(() => {
+        if (input.dataset.resolved !== 'true') input.focus()
+      })
+    }
+
+    const onBlur = () => refocus()
+
+    const onRowClick = (e) => {
+      e.stopPropagation()
+      refocus()
+    }
+
+    row?.addEventListener('click', onRowClick)
 
     const submit = () => {
       const value = input.value.trim()
@@ -366,12 +396,12 @@ function waitForInput(validate) {
         if (valueEl) valueEl.textContent = result.value
         input.dataset.resolved = 'true'
         input.disabled = true
-        input.removeEventListener('keydown', onKeyDown)
-        input.removeEventListener('input', onInput)
+        cleanup()
         if (cursorEl) cursorEl.style.display = 'none'
         resolve(result.value)
       } else {
         showError(result.error)
+        refocus()
       }
     }
 
@@ -388,6 +418,7 @@ function waitForInput(validate) {
 
     input.addEventListener('input', onInput)
     input.addEventListener('keydown', onKeyDown)
+    input.addEventListener('blur', onBlur)
     input.focus()
   })
 }
@@ -412,6 +443,7 @@ function waitForGenderChoice() {
 }
 
 async function promptGender() {
+  suppressClickAdvance()
   const groupRows = []
 
   const headerLine = await printScrollLine('[GENDER] INPUT 1 / 2 / 3:', { prePause: 0 })
@@ -602,6 +634,7 @@ async function runIdentityInput() {
   clearScreen()
   await runOpeningNarrative()
   await fadeClearLineStack()
+  suppressClickAdvance()
 
   const gender = await promptGender()
 

@@ -511,10 +511,6 @@ body::after {
   margin: 0;
   outline: none;
   background: transparent;
-  pointer-events: none;
-}
-
-.terminal-input:focus {
   pointer-events: auto;
 }
 
